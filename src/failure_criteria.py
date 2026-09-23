@@ -53,3 +53,56 @@ def maximum_stress_failure(stress_local, strengths):
     failed = max_failure_index >= 1.0
 
     return failure_indices, max_failure_index, failed
+
+def tsai_hill_failure(stress_local, strengths):
+    """
+    Tsai-Hill Failure Criterion.
+
+    Parameters
+    ----------
+    stress_local : array-like
+        Local lamina stresses [sigma_1, sigma_2, tau_12] in Pa.
+
+    strengths : dict
+        Strength values in Pa:
+        Xt, Xc, Yt, Yc, S
+
+    Returns
+    -------
+    failure_index : float
+        Tsai-Hill failure index.
+
+    failed : bool
+        True if failure index >= 1.
+    """
+
+    sigma_1, sigma_2, tau_12 = stress_local
+
+    Xt = strengths["Xt"]
+    Xc = strengths["Xc"]
+    Yt = strengths["Yt"]
+    Yc = strengths["Yc"]
+    S = strengths["S"]
+
+    # Select tensile or compressive strength
+    # according to the sign of the corresponding stress.
+    if sigma_1 >= 0:
+        X = Xt
+    else:
+        X = Xc
+
+    if sigma_2 >= 0:
+        Y = Yt
+    else:
+        Y = Yc
+
+    failure_index = (
+        (sigma_1 / X) ** 2
+        - (sigma_1 * sigma_2) / (X ** 2)
+        + (sigma_2 / Y) ** 2
+        + (tau_12 / S) ** 2
+    )
+
+    failed = failure_index >= 1.0
+
+    return failure_index, failed
