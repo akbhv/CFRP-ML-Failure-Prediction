@@ -106,3 +106,58 @@ def tsai_hill_failure(stress_local, strengths):
     failed = failure_index >= 1.0
 
     return failure_index, failed
+
+def tsai_wu_failure(stress_local, strengths, F12=0.0):
+    """
+    Tsai-Wu Failure Criterion for a plane-stress lamina.
+
+    Parameters
+    ----------
+    stress_local : array-like
+        Local lamina stresses [sigma_1, sigma_2, tau_12] in Pa.
+
+    strengths : dict
+        Strength values in Pa:
+        Xt, Xc, Yt, Yc, S
+
+    Returns
+    -------
+    failure_index : float
+        Tsai-Wu failure index.
+
+    failed : bool
+        True if failure index >= 1.
+    """
+
+    sigma_1, sigma_2, tau_12 = stress_local
+
+    Xt = strengths["Xt"]
+    Xc = strengths["Xc"]
+    Yt = strengths["Yt"]
+    Yc = strengths["Yc"]
+    S = strengths["S"]
+
+    # First-order strength coefficients
+    F1 = (1.0 / Xt) - (1.0 / Xc)
+    F2 = (1.0 / Yt) - (1.0 / Yc)
+
+    # Second-order coefficients
+    F11 = 1.0 / (Xt * Xc)
+    F22 = 1.0 / (Yt * Yc)
+    F66 = 1.0 / (S ** 2)
+
+    # Interaction coefficient.
+    # For now, use the commonly adopted assumption F12 = 0.
+
+    failure_index = (
+        F1 * sigma_1
+        + F2 * sigma_2
+        + F11 * sigma_1**2
+        + F22 * sigma_2**2
+        + F66 * tau_12**2
+        + 2.0 * F12 * sigma_1 * sigma_2
+    )
+
+    failed = failure_index >= 1.0
+
+    return failure_index, failed
