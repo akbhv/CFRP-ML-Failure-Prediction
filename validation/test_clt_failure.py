@@ -9,7 +9,10 @@ from src.clt import (
     global_to_local_strain,
     local_stress_from_strain
 )
-from src.failure_criteria import maximum_stress_failure
+from src.failure_criteria import (
+    maximum_stress_failure,
+    tsai_hill_failure
+)
 
 
 # --------------------------------------------------
@@ -151,12 +154,17 @@ for ply_data, angle in zip(ply_strains, ply_angles):
             strengths
         )
 
+        tsai_hill_fi, tsai_hill_failed = tsai_hill_failure(
+            stress_local,
+            strengths
+        )
+
         print(
             f"Ply {ply_number} | "
             f"{surface} | "
             f"angle = {angle}° | "
-            f"FI = {max_fi:.6f} | "
-            f"Failed = {failed}"
+            f"Max Stress FI = {max_fi:.6f} | "
+            f"Tsai-Hill FI = {tsai_hill_fi:.6f}"
         )
 
         # Track governing point
