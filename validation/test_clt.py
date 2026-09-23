@@ -82,20 +82,21 @@ if np.allclose(B, 0, atol=1e-10):
 else:
     print("FAIL: B matrix is not zero.")
 
-# Applied in-plane loads
-# Units: N/m
+# Pure bending load
+# Units:
+# N  -> N/m
+# M  -> N
+
 N = np.array([
-    10000.0,   # Nx
-    0.0,       # Ny
-    0.0        # Nxy
+    0.0,
+    0.0,
+    0.0
 ])
 
-# Applied moments
-# Units: N
 M = np.array([
-    0.0,       # Mx
-    0.0,       # My
-    0.0        # Mxy
+    100.0,    # Mx
+    0.0,      # My
+    0.0       # Mxy
 ])
 
 
