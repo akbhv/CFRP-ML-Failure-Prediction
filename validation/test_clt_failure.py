@@ -12,9 +12,14 @@ from src.clt import (
 from src.failure_criteria import (
     maximum_stress_failure,
     tsai_hill_failure,
-    tsai_wu_failure
+    tsai_wu_failure,
+    hashin_failure
 )
 
+max_hashin_fi = 0.0
+max_hashin_mode = None
+max_hashin_ply = None
+max_hashin_surface = None
 
 # --------------------------------------------------
 # 1. Material properties
@@ -165,6 +170,16 @@ for ply_data, angle in zip(ply_strains, ply_angles):
             strengths
         )
 
+        hashin_indices, hashin_max, hashin_mode, hashin_failed = hashin_failure(
+            stress_local,
+            strengths
+        )
+        if hashin_max > max_hashin_fi:
+            max_hashin_fi = hashin_max
+            max_hashin_mode = hashin_mode
+            max_hashin_ply = ply_number
+            max_hashin_surface = surface
+
         print(
             f"Ply {ply_number} | "
             f"{surface} | "
@@ -172,6 +187,12 @@ for ply_data, angle in zip(ply_strains, ply_angles):
             f"Max Stress FI = {max_fi:.6f} | "
             f"Tsai-Hill FI = {tsai_hill_fi:.6f} | "
             f"Tsai-Wu FI = {tsai_wu_fi:.6f}"
+        )
+        print(
+            f"Hashin: "
+            f"FI={hashin_max:.6f}, "
+            f"Mode={hashin_mode}, "
+            f"Failed={hashin_failed}"
         )
 
         # Track governing point
@@ -207,4 +228,24 @@ print(
 print(
     f"Laminate failed = "
     f"{laminate_failed}"
+)
+
+print(
+    f"\nMaximum Hashin FI = "
+    f"{max_hashin_fi:.6f}"
+)
+
+print(
+    f"Hashin governing mode = "
+    f"{max_hashin_mode}"
+)
+
+print(
+    f"Hashin governing ply/surface = "
+    f"Ply {max_hashin_ply} ({max_hashin_surface})"
+)
+
+print(
+    f"Hashin laminate failed = "
+    f"{max_hashin_fi >= 1.0}"
 )

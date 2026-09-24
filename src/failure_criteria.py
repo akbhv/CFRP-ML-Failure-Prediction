@@ -161,3 +161,94 @@ def tsai_wu_failure(stress_local, strengths, F12=0.0):
     failed = failure_index >= 1.0
 
     return failure_index, failed
+
+def hashin_failure(stress_local, strengths):
+    """
+    Hashin Failure Criterion for a plane-stress UD lamina.
+
+    Parameters
+    ----------
+    stress_local : array-like
+        Local lamina stresses [sigma_1, sigma_2, tau_12] in Pa.
+
+    strengths : dict
+        Strength values in Pa:
+        Xt, Xc, Yt, Yc, S
+
+    Returns
+    -------
+    failure_indices : dict
+        Failure index for each Hashin failure mode.
+
+    max_failure_index : float
+        Maximum Hashin failure index.
+
+    failure_mode : str
+        Governing failure mode.
+
+    failed : bool
+        True if any failure index >= 1.
+    """
+
+    sigma_1, sigma_2, tau_12 = stress_local
+
+    Xt = strengths["Xt"]
+    Xc = strengths["Xc"]
+    Yt = strengths["Yt"]
+    Yc = strengths["Yc"]
+    S = strengths["S"]
+
+    # Initialize all failure indices
+    FI_ft = 0.0
+    FI_fc = 0.0
+    FI_mt = 0.0
+    FI_mc = 0.0
+
+    # Fiber failure
+    if sigma_1 >= 0:
+        FI_ft = (
+            (sigma_1 / Xt) ** 2
+            + (tau_12 / S) ** 2
+        )
+    else:
+        FI_fc = (
+            (sigma_1 / Xc) ** 2
+        )
+
+    # Matrix failure
+    if sigma_2 >= 0:
+        FI_mt = (
+            (sigma_2 / Yt) ** 2
+            + (tau_12 / S) ** 2
+        )
+    else:
+        FI_mc = (
+            (sigma_2 / (2.0 * S)) ** 2
+            + (
+                (Yc / (2.0 * S)) ** 2 - 1.0
+            ) * (sigma_2 / Yc)
+            + (tau_12 / S) ** 2
+        )
+
+    failure_indices = {
+        "fiber_tension": FI_ft,
+        "fiber_compression": FI_fc,
+        "matrix_tension": FI_mt,
+        "matrix_compression": FI_mc
+    }
+
+    failure_mode = max(
+        failure_indices,
+        key=failure_indices.get
+    )
+
+    max_failure_index = failure_indices[failure_mode]
+
+    failed = max_failure_index >= 1.0
+
+    return (
+        failure_indices,
+        max_failure_index,
+        failure_mode,
+        failed
+    )
