@@ -1,0 +1,44 @@
+sigma_x_MPa,sigma_y_MPa,experimental_set
+-305.82,0.0,Set 1 - 96 mm tubes [14]
+-328.4,0.0,Set 1 - 96 mm tubes [14]
+-368.43,0.0,Set 1 - 96 mm tubes [14]
+-393.06,0.0,Set 1 - 96 mm tubes [14]
+-281.19,161.97,Set 1 - 96 mm tubes [14]
+-369.45,203.73,Set 1 - 96 mm tubes [14]
+-264.77,243.46,Set 1 - 96 mm tubes [14]
+-281.19,312.73,Set 1 - 96 mm tubes [14]
+-213.46,387.1,Set 1 - 96 mm tubes [14]
+-248.35,399.32,Set 1 - 96 mm tubes [14]
+-300.69,405.43,Set 1 - 96 mm tubes [14]
+-232.96,514.44,Set 1 - 96 mm tubes [14]
+-87.23,777.26,Set 1 - 96 mm tubes [14]
+-28.73,644.83,Set 1 - 96 mm tubes [14]
+428.7,857.4,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+423.5,847.1,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+38.7,721.9,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+220.0,677.1,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+202.0,730.5,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+18.1,677.6,"Set 2 - 96 mm tubes, 1 mm thick [22]"
+46.9,667.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+172.2,790.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+35.8,718.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+124.8,696.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+54.5,723.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+254.0,774.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+450.0,849.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+442.0,813.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+504.0,908.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+728.0,969.0,"Set 3 - 96 mm tubes, 1 mm thick [15]"
+-733.0,0.0,"Set 4 - 38.1 mm tubes, ~2 mm thick [17]"
+-537.0,0.0,"Set 4 - 38.1 mm tubes, ~2 mm thick [17]"
+-640.0,0.0,"Set 4 - 38.1 mm tubes, ~2 mm thick [17]"
+0.0,652.0,Set 5 - 51.8 mm tubes [16]
+0.0,761.0,Set 5 - 51.8 mm tubes [16]
+0.0,752.0,Set 5 - 51.8 mm tubes [16]
+0.0,-404.0,Set 5 - 51.8 mm tubes [16]
+0.0,-329.0,Set 5 - 51.8 mm tubes [16]
+-418.0,-304.0,Set 5 - 51.8 mm tubes [16]
+-638.0,-190.0,Set 5 - 51.8 mm tubes [16]
+-275.0,-301.0,Set 5 - 51.8 mm tubes [16]
+-187.0,-334.0,Set 5 - 51.8 mm tubes [16]
+-188.0,-338.0,Set 5 - 51.8 mm tubes [16]
