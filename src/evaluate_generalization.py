@@ -27,8 +27,8 @@ SCALER_FILE = Path(
 )
 
 MODEL_FILE = Path(
-    "results/architecture_comparison/"
-    "baseline_model.keras"
+    "results/dnn_regression/"
+    "dnn_hashin_fi.keras"
 )
 
 OUTPUT_DIR = Path(

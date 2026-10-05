@@ -16,7 +16,7 @@ from sklearn.metrics import (
 # ============================================================
 
 DATA_DIR = Path("data/processed/ml")
-MODEL_DIR = Path("results/architecture_comparison")
+MODEL_DIR = Path("results/dnn_regression")
 OUTPUT_DIR = Path("results/regression_error_analysis")
 
 OUTPUT_DIR.mkdir(
@@ -34,7 +34,7 @@ y_actual = np.load(
 )
 
 y_pred = np.load(
-    MODEL_DIR / "baseline_y_pred.npy"
+    MODEL_DIR / "y_pred.npy"
 )
 
 
