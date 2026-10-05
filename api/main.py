@@ -2,8 +2,8 @@ from typing import List
 import pandas as pd
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-
 from src.laminate_failure_comparison import evaluate_laminate_failure
 from src.laminate_failure_envelope import find_first_ply_failure
 from src.laminate_loading_study import run_loading_study
@@ -15,6 +15,17 @@ app = FastAPI(
         "failure prediction."
     ),
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
