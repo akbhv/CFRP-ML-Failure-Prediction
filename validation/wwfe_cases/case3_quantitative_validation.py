@@ -251,14 +251,17 @@ def main():
         envelope["sigma_x_MPa"],
         envelope["sigma_y_MPa"],
         linewidth=2.2,
-        label="CLT + Hashin first-ply failure",
+        label="CLT–Hashin predicted first-ply-failure envelope",
     )
 
     plt.axhline(0, linewidth=0.8)
     plt.axvline(0, linewidth=0.8)
     plt.xlabel("sigma_x (MPa)")
     plt.ylabel("sigma_y (MPa)")
-    plt.title("WWFE Case 3: Experimental Points vs CLT–Hashin First-Ply Envelope")
+    plt.title(
+        "WWFE Case 3: Experimental Failure Data vs "
+        "CLT–Hashin First-Ply-Failure Envelope"
+    )
     plt.grid(True, alpha=0.25)
     plt.legend(fontsize=8)
     plt.tight_layout()
@@ -276,7 +279,7 @@ def main():
     plt.axhline(
         1.0,
         linewidth=1.5,
-        label="Experimental = predicted first-ply load",
+        label="Ratio = 1",
     )
 
     plt.scatter(
@@ -286,7 +289,7 @@ def main():
     )
 
     plt.xlabel("Experimental data point")
-    plt.ylabel("Experimental / predicted first-ply load")
+    plt.ylabel("Experimental / predicted first-ply load ratio")
     plt.title("WWFE Case 3: Experimental-to-CLT–Hashin First-Ply Load Ratio")
     plt.grid(True, alpha=0.25)
     plt.legend()
