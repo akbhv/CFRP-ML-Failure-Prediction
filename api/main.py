@@ -1,11 +1,12 @@
 from typing import List
-
+import pandas as pd
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from src.laminate_failure_comparison import evaluate_laminate_failure
-
+from src.laminate_failure_envelope import find_first_ply_failure
+from src.laminate_loading_study import run_loading_study
 
 app = FastAPI(
     title="CFRP Failure Prediction API",
@@ -108,10 +109,6 @@ def analyze_laminate(request: AnalysisRequest):
     strengths = request.strengths
     loads = request.loads
 
-    # --------------------------------------------------------
-    # Convert API input into physics-engine inputs
-    # --------------------------------------------------------
-
     N = np.array([
         loads.Nx,
         loads.Ny,
@@ -132,10 +129,6 @@ def analyze_laminate(request: AnalysisRequest):
         "S": strengths.S,
     }
 
-    # --------------------------------------------------------
-    # Run validated laminate physics engine
-    # --------------------------------------------------------
-
     results = evaluate_laminate_failure(
         E1=material.E1,
         E2=material.E2,
@@ -147,10 +140,6 @@ def analyze_laminate(request: AnalysisRequest):
         M=M,
         strengths=strengths_dict,
     )
-
-    # --------------------------------------------------------
-    # Find governing result for each criterion
-    # --------------------------------------------------------
 
     criterion_names = [
         "Maximum Stress",
@@ -187,10 +176,6 @@ def analyze_laminate(request: AnalysisRequest):
                 governing["criteria"][criterion]["failure_mode"]
             )
 
-    # --------------------------------------------------------
-    # Serialize ply results
-    # --------------------------------------------------------
-
     ply_results = []
 
     for result in results["ply_results"]:
@@ -205,10 +190,6 @@ def analyze_laminate(request: AnalysisRequest):
                 result["criteria"]
             ),
         })
-
-    # --------------------------------------------------------
-    # Return JSON response
-    # --------------------------------------------------------
 
     return {
         "status": "success",
@@ -245,4 +226,151 @@ def analyze_laminate(request: AnalysisRequest):
         "governing_results": governing_results,
 
         "ply_results": ply_results,
+    }
+
+
+@app.post("/first-ply-failure")
+def first_ply_failure(request: AnalysisRequest):
+    """
+    Determine the load factor at which first-ply failure occurs
+    for each validated failure criterion.
+    """
+
+    material = request.material
+    strengths = request.strengths
+    loads = request.loads
+
+    N_base = np.array([
+        loads.Nx,
+        loads.Ny,
+        loads.Nxy,
+    ])
+
+    M_base = np.array([
+        loads.Mx,
+        loads.My,
+        loads.Mxy,
+    ])
+
+    strengths_dict = {
+        "Xt": strengths.Xt,
+        "Xc": strengths.Xc,
+        "Yt": strengths.Yt,
+        "Yc": strengths.Yc,
+        "S": strengths.S,
+    }
+
+    results = find_first_ply_failure(
+        E1=material.E1,
+        E2=material.E2,
+        G12=material.G12,
+        nu12=material.nu12,
+        ply_angles=request.layup,
+        ply_thickness=request.ply_thickness,
+        N_base=N_base,
+        M_base=M_base,
+        strengths=strengths_dict,
+    )
+
+    serialized_results = {}
+
+    for criterion, result in results.items():
+        serialized_results[criterion] = {
+            "critical_load_factor": float(
+                result["critical_load_factor"]
+            ),
+            "failure_index": float(
+                result["failure_index"]
+            ),
+            "ply": int(result["ply"]),
+            "angle": float(result["angle"]),
+            "surface": result["surface"],
+            "failed": bool(result["failed"]),
+        }
+
+        if "failure_mode" in result:
+            serialized_results[criterion]["failure_mode"] = (
+                result["failure_mode"]
+            )
+
+    return {
+        "status": "success",
+        "message": (
+            "First-ply-failure load factors calculated "
+            "for all validated criteria."
+        ),
+        "load_definition": {
+            "N_base": N_base.tolist(),
+            "M_base": M_base.tolist(),
+            "meaning": (
+                "Critical load factor lambda scales the supplied "
+                "base laminate loads."
+            ),
+        },
+        "results": serialized_results,
+    }
+
+@app.post("/loading-study")
+def loading_study(request: AnalysisRequest):
+    """
+    Run the validated multi-loading first-ply-failure study.
+
+    Uses the default six loading cases defined in
+    src.laminate_loading_study.py.
+    """
+
+    strengths_dict = {
+        "Xt": request.strengths.Xt,
+        "Xc": request.strengths.Xc,
+        "Yt": request.strengths.Yt,
+        "Yc": request.strengths.Yc,
+        "S": request.strengths.S,
+    }
+
+    results = run_loading_study(
+        ply_angles=request.layup,
+        ply_thickness=request.ply_thickness,
+        strengths=strengths_dict,
+        E1=request.material.E1,
+        E2=request.material.E2,
+        G12=request.material.G12,
+        nu12=request.material.nu12,
+    )
+
+    records = []
+
+    for _, row in results.iterrows():
+        records.append({
+            "loading_case": row["loading_case"],
+            "criterion": row["criterion"],
+            "base_loads": {
+                "Nx_N_per_m": float(row["base_Nx_N_per_m"]),
+                "Ny_N_per_m": float(row["base_Ny_N_per_m"]),
+                "Nxy_N_per_m": float(row["base_Nxy_N_per_m"]),
+            },
+            "critical_load_factor": float(row["critical_load_factor"]),
+            "critical_loads": {
+                "Nx_N_per_m": float(row["critical_Nx_N_per_m"]),
+                "Ny_N_per_m": float(row["critical_Ny_N_per_m"]),
+                "Nxy_N_per_m": float(row["critical_Nxy_N_per_m"]),
+            },
+            "failure_index": float(row["failure_index"]),
+            "ply": int(row["ply"]),
+            "angle_deg": float(row["angle_deg"]),
+            "surface": row["surface"],
+            "failure_mode": (
+
+             None
+             if pd.isna(row["failure_mode"])
+             else row["failure_mode"]
+            ),
+        })
+
+    return {
+        "status": "success",
+        "message": "Multi-loading first-ply-failure study completed.",
+        "number_of_loading_cases": 6,
+        "number_of_criteria": 7,
+        "total_results": len(records),
+        "results": records,
     }
