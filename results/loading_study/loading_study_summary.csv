@@ -1,0 +1,7 @@
+loading_case,most_conservative_criterion,minimum_failure_load_factor,least_conservative_criterion,maximum_failure_load_factor
+Biaxial tension,Tsai-Hill,3.240384578704834,Maximum Strain,4.293430805206299
+Combined loading,Tsai-Hill,3.235291004180908,Maximum Strain,3.463752269744873
+In-plane shear,Tsai-Wu,2.144138813018799,Maximum Stress,2.950709819793701
+Longitudinal tension,Maximum Strain,2.9028029441833496,Maximum Stress,3.1565871238708496
+Tension-compression,Tsai-Wu,2.144138813018799,Maximum Stress,2.950709819793701
+Transverse tension,Maximum Strain,2.9028029441833496,Maximum Stress,3.1565871238708496

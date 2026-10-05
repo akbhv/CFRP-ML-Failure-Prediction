@@ -72,9 +72,11 @@ def evaluate_all_criteria(
 
     sigma_1, sigma_2, tau_12 = stress_local
 
+    nu21 = nu12 * E2 / E1
+
     strain_local = np.array([
         (sigma_1 - nu12 * sigma_2) / E1,
-        (sigma_2 - nu12 * sigma_1) / E2,
+        (sigma_2 - nu21 * sigma_1) / E2,
         tau_12 / G12,
     ])
 

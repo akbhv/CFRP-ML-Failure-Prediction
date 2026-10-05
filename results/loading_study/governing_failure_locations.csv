@@ -1,0 +1,43 @@
+loading_case,criterion,critical_load_factor,ply,angle_deg,surface,failure_mode
+Longitudinal tension,Maximum Stress,3.1565871238708496,4,90.0,bottom,
+Longitudinal tension,Maximum Strain,2.9028029441833496,4,90.0,bottom,
+Longitudinal tension,Tsai-Hill,3.0992484092712402,4,90.0,bottom,
+Longitudinal tension,Tsai-Wu,2.996525287628174,4,90.0,bottom,
+Longitudinal tension,Hoffman,3.0061230659484863,4,90.0,bottom,
+Longitudinal tension,Hashin,3.1565871238708496,4,90.0,bottom,matrix_tension
+Longitudinal tension,Puck,3.1565871238708496,4,90.0,bottom,IFF_A_tension
+Transverse tension,Maximum Stress,3.1565871238708496,1,0.0,bottom,
+Transverse tension,Maximum Strain,2.9028029441833496,1,0.0,bottom,
+Transverse tension,Tsai-Hill,3.0992484092712402,1,0.0,bottom,
+Transverse tension,Tsai-Wu,2.996525287628174,1,0.0,bottom,
+Transverse tension,Hoffman,3.0061230659484863,1,0.0,bottom,
+Transverse tension,Hashin,3.1565871238708496,1,0.0,bottom,matrix_tension
+Transverse tension,Puck,3.1565871238708496,1,0.0,bottom,IFF_A_tension
+In-plane shear,Maximum Stress,2.950709819793701,3,-45.0,top,
+In-plane shear,Maximum Strain,2.1926207542419434,3,-45.0,bottom,
+In-plane shear,Tsai-Hill,2.3959498405456543,3,-45.0,bottom,
+In-plane shear,Tsai-Wu,2.144138813018799,3,-45.0,bottom,
+In-plane shear,Hoffman,2.1591057777404785,3,-45.0,bottom,
+In-plane shear,Hashin,2.950709819793701,3,-45.0,top,matrix_tension
+In-plane shear,Puck,2.950709819793701,3,-45.0,top,IFF_A_tension
+Biaxial tension,Maximum Stress,3.3933491706848145,2,45.0,bottom,
+Biaxial tension,Maximum Strain,4.293430805206299,2,45.0,bottom,
+Biaxial tension,Tsai-Hill,3.240384578704834,2,45.0,bottom,
+Biaxial tension,Tsai-Wu,3.308457851409912,2,45.0,bottom,
+Biaxial tension,Hoffman,3.2844901084899902,2,45.0,bottom,
+Biaxial tension,Hashin,3.3933491706848145,2,45.0,bottom,matrix_tension
+Biaxial tension,Puck,3.3933491706848145,2,45.0,bottom,IFF_A_tension
+Tension-compression,Maximum Stress,2.950709819793701,4,90.0,bottom,
+Tension-compression,Maximum Strain,2.1926207542419434,4,90.0,bottom,
+Tension-compression,Tsai-Hill,2.3959498405456543,4,90.0,bottom,
+Tension-compression,Tsai-Wu,2.144138813018799,4,90.0,bottom,
+Tension-compression,Hoffman,2.1591057777404785,4,90.0,bottom,
+Tension-compression,Hashin,2.950709819793701,4,90.0,bottom,matrix_tension
+Tension-compression,Puck,2.950709819793701,4,90.0,bottom,IFF_A_tension
+Combined loading,Maximum Stress,3.270688533782959,4,90.0,bottom,
+Combined loading,Maximum Strain,3.463752269744873,4,90.0,bottom,
+Combined loading,Tsai-Hill,3.235291004180908,4,90.0,bottom,
+Combined loading,Tsai-Wu,3.2728610038757324,4,90.0,bottom,
+Combined loading,Hoffman,3.265674114227295,4,90.0,bottom,
+Combined loading,Hashin,3.2436766624450684,4,90.0,bottom,matrix_tension
+Combined loading,Puck,3.2377829551696777,4,90.0,bottom,IFF_A_tension

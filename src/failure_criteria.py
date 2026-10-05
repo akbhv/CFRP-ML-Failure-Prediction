@@ -503,7 +503,9 @@ def puck_failure(stress_local, strengths, parameters=None):
     # ]
     # + p+*sigma2/S
 
-    if sigma_2 >= 0.0:
+    sigma_2_tolerance = 1e-10 * max(Yc, S, 1.0)
+
+    if sigma_2 >= -sigma_2_tolerance:
 
         fi_iff = np.sqrt(
             (tau_12 / S) ** 2
@@ -520,6 +522,7 @@ def puck_failure(stress_local, strengths, parameters=None):
         fracture_angle = 0.0
 
     else:
+        sigma_2_compression = min(sigma_2, -sigma_2_tolerance)
 
         # ----------------------------------------------------
         # Mode B
@@ -561,10 +564,10 @@ def puck_failure(stress_local, strengths, parameters=None):
                     )
                 ) ** 2
                 +
-                (sigma_2 / Yc) ** 2
+                (sigma_2_compression / Yc) ** 2
             )
             *
-            (-Yc / sigma_2)
+            (-Yc / sigma_2_compression)
         )
 
         # Puck distinguishes the compression/shear
