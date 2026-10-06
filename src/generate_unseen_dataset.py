@@ -21,32 +21,54 @@ NUMBER_OF_SAMPLES = 5000
 # MATERIAL PROPERTIES
 # ============================================================
 
-Ef = 230e9
-Gf = 30e9
-nu_f = 0.20
+from src.materials import get_fiber, get_matrix
+from src.micromechanics import calculate_lamina_properties
+from src.strengths import find_lamina_strengths
 
-Em = 3.5e9
-Gm = 1.3e9
-nu_m = 0.35
 
+FIBER_NAME = "T300"
+MATRIX_NAME = "Standard Epoxy"
 Vf = 0.60
 
-Vm = 1.0 - Vf
 
-E1 = Vf * Ef + Vm * Em
-E2 = 1.0 / (Vf / Ef + Vm / Em)
-G12 = 1.0 / (Vf / Gf + Vm / Gm)
-nu12 = Vf * nu_f + Vm * nu_m
+# Get constituent properties from the canonical material database
+fiber = get_fiber(FIBER_NAME)
+matrix = get_matrix(MATRIX_NAME)
+
+
+# Calculate effective lamina properties using the same
+# micromechanics model used by the main application
+E1, E2, G12, nu12 = calculate_lamina_properties(
+    fiber["E"],
+    matrix["E"],
+    fiber["G"],
+    matrix["G"],
+    fiber["nu"],
+    matrix["nu"],
+    Vf
+)
+
+
+# Get the verified lamina strength dataset
+strength_data = find_lamina_strengths(
+    FIBER_NAME,
+    MATRIX_NAME
+)
+
+if strength_data is None:
+    raise ValueError(
+        f"No verified lamina strength dataset exists for "
+        f"{FIBER_NAME}/{MATRIX_NAME}"
+    )
 
 
 strengths = {
-    "Xt": 1950e6,
-    "Xc": 1480e6,
-    "Yt": 48e6,
-    "Yc": 200e6,
-    "S": 79e6
+    "Xt": strength_data["Xt"],
+    "Xc": strength_data["Xc"],
+    "Yt": strength_data["Yt"],
+    "Yc": strength_data["Yc"],
+    "S": strength_data["S"]
 }
-
 
 # ============================================================
 # LAMINATE

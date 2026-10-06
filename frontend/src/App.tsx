@@ -162,6 +162,25 @@ type MaterialPropertiesResponse = {
   };
 };
 
+type MaterialStrengthsResponse = {
+  status: string;
+  fiber: string;
+  matrix: string;
+  system_id?: string;
+  system_name?: string;
+  strengths?: {
+    Xt: number;
+    Xc: number;
+    Yt: number;
+    Yc: number;
+    S: number;
+  };
+  source?: string;
+  source_type?: string;
+  notes?: string;
+  message?: string;
+};
+
 type MaterialsResponse = {
   fibers: string[];
   matrices: string[];
@@ -177,6 +196,13 @@ function App() {
   const [materialLoading, setMaterialLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<AnalysisResponse | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlResult, setMlResult] = useState<{
+
+    hashin_fi: number;
+    failed: boolean;
+    decision: string;
+  } | null>(null);
 
   // ============================================================
   // MATERIAL SELECTION
@@ -232,6 +258,10 @@ function App() {
   const [Nx, setNx] = useState("0");
   const [Ny, setNy] = useState("0");
   const [Nxy, setNxy] = useState("0");
+
+  const [Mx, setMx] = useState("0");
+  const [My, setMy] = useState("0");
+  const [Mxy, setMxy] = useState("0");
 
   // ============================================================
   // LAYUP FUNCTIONS
@@ -369,6 +399,33 @@ function App() {
       )
     );
 
+    setMx(
+      convertUnitValue(
+        Mx,
+        "moment",
+        unitSystem,
+        newSystem
+      )
+    );
+
+    setMy(
+      convertUnitValue(
+        My,
+        "moment",
+        unitSystem,
+        newSystem
+      )
+    );
+
+    setMxy(
+      convertUnitValue(
+        Mxy,
+        "moment",
+        unitSystem,
+        newSystem
+      )
+    );
+
     setUnitSystem(newSystem);
   };
 
@@ -439,7 +496,11 @@ function App() {
       setMaterialLoading(true);
 
       try {
-        const response = await fetch(
+        // ==========================================================
+        // EFFECTIVE LAMINA PROPERTIES
+        // ==========================================================
+
+        const materialResponse = await fetch(
           `${API_URL}/material-properties`,
           {
             method: "POST",
@@ -454,18 +515,18 @@ function App() {
           }
         );
 
-        if (!response.ok) {
-          const message = await response.text();
+        if (!materialResponse.ok) {
+          const message = await materialResponse.text();
 
           throw new Error(
-            `Material API returned ${response.status}: ${message}`
+            `Material API returned ${materialResponse.status}: ${message}`
           );
         }
 
-        const data: MaterialPropertiesResponse =
-          await response.json();
+        const materialData: MaterialPropertiesResponse =
+          await materialResponse.json();
 
-        if (data.status !== "success") {
+        if (materialData.status !== "success") {
           throw new Error(
             "Material-property calculation failed."
           );
@@ -473,35 +534,102 @@ function App() {
 
         setE1(
           fromSI.modulus(
-            data.properties.E1,
+            materialData.properties.E1,
             unitSystem
           ).toFixed(4)
         );
 
         setE2(
           fromSI.modulus(
-            data.properties.E2,
+            materialData.properties.E2,
             unitSystem
           ).toFixed(4)
         );
 
         setG12(
           fromSI.modulus(
-            data.properties.G12,
+            materialData.properties.G12,
             unitSystem
           ).toFixed(4)
         );
 
         setNu12(
-          data.properties.nu12.toFixed(4)
+          materialData.properties.nu12.toFixed(4)
         );
+
+        // ==========================================================
+        // VERIFIED LAMINA STRENGTHS
+        // ==========================================================
+
+        const strengthResponse = await fetch(
+          `${API_URL}/material-strengths?fiber=${encodeURIComponent(
+            fiber
+          )}&matrix=${encodeURIComponent(matrix)}`
+        );
+
+        if (!strengthResponse.ok) {
+          const message = await strengthResponse.text();
+
+          throw new Error(
+            `Strength API returned ${strengthResponse.status}: ${message}`
+          );
+        }
+
+        const strengthData: MaterialStrengthsResponse =
+          await strengthResponse.json();
+
+        if (
+          strengthData.status !== "success" ||
+          !strengthData.strengths
+        ) {
+          throw new Error(
+            strengthData.message ||
+            `No verified strength dataset is available for ${fiber}/${matrix}.`
+          );
+        }
+
+        setXt(
+          fromSI.strength(
+            strengthData.strengths.Xt,
+            unitSystem
+          ).toFixed(4)
+        );
+
+        setXc(
+          fromSI.strength(
+            strengthData.strengths.Xc,
+            unitSystem
+          ).toFixed(4)
+        );
+
+        setYt(
+          fromSI.strength(
+            strengthData.strengths.Yt,
+            unitSystem
+          ).toFixed(4)
+        );
+
+        setYc(
+          fromSI.strength(
+            strengthData.strengths.Yc,
+            unitSystem
+          ).toFixed(4)
+        );
+
+        setS(
+          fromSI.strength(
+            strengthData.strengths.S,
+            unitSystem
+          ).toFixed(4)
+        );
+
       } catch (err) {
         console.error(err);
 
         setError(
           err instanceof Error
             ? err.message
-            : "Could not calculate material properties."
+            : "Failed to load material properties and strengths."
         );
       } finally {
         setMaterialLoading(false);
@@ -549,9 +677,9 @@ function App() {
           Nx: toSI.load(Nx, unitSystem),
           Ny: toSI.load(Ny, unitSystem),
           Nxy: toSI.load(Nxy, unitSystem),
-          Mx: 0,
-          My: 0,
-          Mxy: 0,
+          Mx: toSI.moment(Mx, unitSystem),
+          My: toSI.moment(My, unitSystem),
+          Mxy: toSI.moment(Mxy, unitSystem),
         },
       };
 
@@ -591,6 +719,54 @@ function App() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runMLPrediction = async () => {
+    setMlLoading(true);
+    setError("");
+
+    try {
+      const requestBody = {
+        Nx: toSI.load(Nx, unitSystem),
+        Ny: toSI.load(Ny, unitSystem),
+        Nxy: toSI.load(Nxy, unitSystem),
+        Mx: toSI.moment(Mx, unitSystem),
+        My: toSI.moment(My, unitSystem),
+        Mxy: toSI.moment(Mxy, unitSystem),
+      };
+
+      const response = await fetch(
+        `${API_URL}/ml-predict`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(
+          `ML API returned ${response.status}: ${message}`
+        );
+      }
+
+      const data = await response.json();
+
+      setMlResult(data.prediction);
+    } catch (err) {
+      console.error(err);
+
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("ML prediction failed.");
+      }
+    } finally {
+      setMlLoading(false);
     }
   };
 
@@ -1063,48 +1239,66 @@ function App() {
               </p>
             </div>
 
-            <span>{UNITS[unitSystem].load}</span>
+            <span>
+              N: {UNITS[unitSystem].load} · M: {UNITS[unitSystem].moment}
+            </span>
 
           </div>
 
           <div className="form-grid loads">
-
             <label>
               Nₓ
-
               <input
                 type="number"
                 value={Nx}
-                onChange={(e) =>
-                  setNx(e.target.value)
-                }
+                onChange={(e) => setNx(e.target.value)}
               />
             </label>
 
             <label>
               Nᵧ
-
               <input
                 type="number"
                 value={Ny}
-                onChange={(e) =>
-                  setNy(e.target.value)
-                }
+                onChange={(e) => setNy(e.target.value)}
               />
             </label>
 
             <label>
               Nₓᵧ
-
               <input
                 type="number"
                 value={Nxy}
-                onChange={(e) =>
-                  setNxy(e.target.value)
-                }
+                onChange={(e) => setNxy(e.target.value)}
               />
             </label>
 
+            <label>
+              Mₓ
+              <input
+                type="number"
+                value={Mx}
+                onChange={(e) => setMx(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Mᵧ
+              <input
+                type="number"
+                value={My}
+                onChange={(e) => setMy(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Mₓᵧ
+              <input
+                type="number"
+                value={Mxy}
+                onChange={(e) => setMxy(e.target.value)}
+              />
+            </label>
           </div>
 
           <button
@@ -1123,6 +1317,56 @@ function App() {
                 : "Run Analysis"}
           </button>
 
+        </section>
+
+        <section className="card ml-card">
+          <div className="card-header">
+            <div>
+              <h3>AI Failure Prediction</h3>
+              <p>
+                DNN surrogate prediction of the Hashin failure index
+              </p>
+            </div>
+
+            <span>DNN • [64, 64, 32]</span>
+          </div>
+
+          <button
+            className="run-button"
+            onClick={runMLPrediction}
+            disabled={mlLoading}
+          >
+            {mlLoading
+              ? "Predicting..."
+              : "Predict Failure with AI"}
+          </button>
+
+          {mlResult && (
+            <div className="ml-result">
+              <div className="ml-result-header">
+                <span>Predicted Hashin Failure Index</span>
+
+                <span
+                  className={
+                    mlResult.failed
+                      ? "failure-badge"
+                      : "safe-badge"
+                  }
+                >
+                  {mlResult.failed ? "FAILURE" : "SAFE"}
+                </span>
+              </div>
+
+              <div className="fi-value">
+                {mlResult.hashin_fi.toFixed(4)}
+                <span>FI</span>
+              </div>
+
+              <p className="ml-note">
+                Decision threshold: FI = 1.0
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ====================================================

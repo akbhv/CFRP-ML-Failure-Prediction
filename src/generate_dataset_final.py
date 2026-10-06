@@ -4,39 +4,60 @@ from pathlib import Path
 
 from src.micromechanics import calculate_lamina_properties
 from src.dataset_generator import find_hashin_failure_scale
-from src.dataset_generator import evaluate_laminate_case
+from src.laminate_failure_comparison import evaluate_laminate_failure, find_governing_failure
 
 
 # ==================================================
 # MATERIAL
 # ==================================================
 
-Ef = 230e9
-Gf = 30e9
-nu_f = 0.20
+from src.materials import get_fiber, get_matrix
+from src.strengths import find_lamina_strengths
 
-Em = 3.5e9
-Gm = 1.3e9
-nu_m = 0.35
 
+FIBER_NAME = "T300"
+MATRIX_NAME = "Standard Epoxy"
 Vf = 0.60
 
+
+# Get constituent properties from the canonical material database
+fiber = get_fiber(FIBER_NAME)
+matrix = get_matrix(MATRIX_NAME)
+
+
+# Calculate effective lamina properties using the same
+# micromechanics model used by the application
 E1, E2, G12, nu12 = calculate_lamina_properties(
-    Ef,
-    Em,
-    Gf,
-    Gm,
-    nu_f,
-    nu_m,
+    fiber["E"],
+    matrix["E"],
+    fiber["G"],
+    matrix["G"],
+    fiber["nu"],
+    matrix["nu"],
     Vf
 )
 
+
+# Get the verified lamina strength dataset corresponding
+# to the selected fiber/matrix combination
+strength_data = find_lamina_strengths(
+    FIBER_NAME,
+    MATRIX_NAME
+)
+
+if strength_data is None:
+    raise ValueError(
+        f"No verified lamina strength dataset exists for "
+        f"{FIBER_NAME}/{MATRIX_NAME}"
+    )
+
+
 strengths = {
-    "Xt": 1950e6,
-    "Xc": 1480e6,
-    "Yt": 48e6,
-    "Yc": 200e6,
-    "S": 79e6
+    "Xt": strength_data["Xt"],
+    "Xc": strength_data["Xc"],
+    "Yt": strength_data["Yt"],
+    "Yc": strength_data["Yc"],
+    "S": strength_data["S"]
 }
 
 
@@ -75,9 +96,7 @@ OUTPUT_PATH = Path(
 # ==================================================
 
 def generate_random_load_direction(rng):
-
     direction = rng.normal(size=6)
-
     norm = np.linalg.norm(direction)
 
     while norm == 0:
@@ -92,7 +111,6 @@ def generate_random_load_direction(rng):
 # ==================================================
 
 def generate_multiplier(rng):
-
     region = rng.choice(
         [
             "low_safe",
@@ -101,27 +119,17 @@ def generate_multiplier(rng):
             "near_boundary_failed",
             "high_failed"
         ],
-        p=[
-            0.15,
-            0.25,
-            0.20,
-            0.25,
-            0.15
-        ]
+        p=[0.15, 0.25, 0.20, 0.25, 0.15]
     )
 
     if region == "low_safe":
         multiplier = rng.uniform(0.10, 0.60)
-
     elif region == "near_boundary_safe":
         multiplier = rng.uniform(0.60, 0.95)
-
     elif region == "boundary":
         multiplier = rng.uniform(0.95, 1.05)
-
     elif region == "near_boundary_failed":
         multiplier = rng.uniform(1.05, 1.20)
-
     else:
         multiplier = rng.uniform(1.20, 1.50)
 
@@ -133,20 +141,19 @@ def generate_multiplier(rng):
 # ==================================================
 
 def generate_dataset():
-
     rng = np.random.default_rng(RANDOM_SEED)
-
     rows = []
 
     attempts = 0
     boundary_failures = 0
 
     print("-----------------------------------")
-    print("GENERATING FINAL DATASET V2")
+    print("GENERATING FINAL DATASET V3")
+    print("-----------------------------------")
+    print("Seven failure-criterion outputs enabled")
     print("-----------------------------------")
 
     while len(rows) < NUMBER_OF_SAMPLES:
-
         attempts += 1
 
         # ------------------------------------------
@@ -156,46 +163,10 @@ def generate_dataset():
         load_direction = generate_random_load_direction(rng)
 
         # ------------------------------------------
-        # Failure boundary
+        # Hashin failure boundary for boundary-aware sampling
         # ------------------------------------------
 
-        failure_scale, boundary_result = (
-            find_hashin_failure_scale(
-                E1,
-                E2,
-                G12,
-                nu12,
-                strengths,
-                ply_angles,
-                ply_thickness,
-                load_direction
-            )
-        )
-
-        if failure_scale is None:
-            boundary_failures += 1
-            continue
-
-        # ------------------------------------------
-        # Sample around boundary
-        # ------------------------------------------
-
-        multiplier, sampling_region = (
-            generate_multiplier(rng)
-        )
-
-        scale = failure_scale * multiplier
-
-        load_vector = scale * load_direction
-
-        N = load_vector[:3]
-        M = load_vector[3:]
-
-        # ------------------------------------------
-        # Physics evaluation
-        # ------------------------------------------
-
-        result = evaluate_laminate_case(
+        failure_scale, boundary_result = find_hashin_failure_scale(
             E1,
             E2,
             G12,
@@ -203,73 +174,109 @@ def generate_dataset():
             strengths,
             ply_angles,
             ply_thickness,
-            N,
-            M
+            load_direction
         )
+
+        if failure_scale is None:
+            boundary_failures += 1
+            continue
+
+        # ------------------------------------------
+        # Sample around Hashin boundary
+        # ------------------------------------------
+
+        multiplier, sampling_region = generate_multiplier(rng)
+        scale = failure_scale * multiplier
+        load_vector = scale * load_direction
+
+        N = load_vector[:3]
+        M = load_vector[3:]
+
+        # ------------------------------------------
+        # Full physics evaluation: ALL 7 criteria
+        # ------------------------------------------
+
+        laminate_result = evaluate_laminate_failure(
+            E1,
+            E2,
+            G12,
+            nu12,
+            ply_angles,
+            ply_thickness,
+            N,
+            M,
+            strengths,
+        )
+
+        criteria = [
+            "Maximum Stress",
+            "Maximum Strain",
+            "Tsai-Hill",
+            "Tsai-Wu",
+            "Hoffman",
+            "Hashin",
+            "Puck",
+        ]
+
+        governing = {
+            criterion: find_governing_failure(laminate_result, criterion)
+            for criterion in criteria
+        }
 
         # ------------------------------------------
         # Store sample
         # ------------------------------------------
 
-        rows.append({
-
-            # ------------------------------
+        row = {
             # Inputs
-            # ------------------------------
-
             "Nx": N[0],
             "Ny": N[1],
             "Nxy": N[2],
-
             "Mx": M[0],
             "My": M[1],
             "Mxy": M[2],
 
-            # ------------------------------
             # Dataset metadata
-            # ------------------------------
-
             "boundary_scale": failure_scale,
-
             "load_multiplier": multiplier,
-
             "sampling_region": sampling_region,
+        }
 
-            # ------------------------------
-            # Regression targets
-            # ------------------------------
+        # Store FI + classification + governing location for every criterion.
+        criterion_columns = {
+            "Maximum Stress": "max_stress",
+            "Maximum Strain": "max_strain",
+            "Tsai-Hill": "tsai_hill",
+            "Tsai-Wu": "tsai_wu",
+            "Hoffman": "hoffman",
+            "Hashin": "hashin",
+            "Puck": "puck",
+        }
 
-            "hashin_fi": result["hashin_fi"],
+        for criterion, prefix in criterion_columns.items():
+            result = governing[criterion]
+            criterion_data = result["criteria"][criterion]
 
-            "max_stress_fi": result["max_stress_fi"],
+            row[f"{prefix}_fi"] = float(criterion_data["failure_index"])
+            row[f"{prefix}_failed"] = int(criterion_data["failed"])
+            row[f"{prefix}_ply"] = int(result["ply"])
+            row[f"{prefix}_angle"] = float(result["angle"])
+            row[f"{prefix}_surface"] = result["surface"]
 
-            "tsai_hill_fi": result["tsai_hill_fi"],
+            # Hashin and Puck expose mode information.
+            if criterion == "Hashin":
+                row["hashin_mode"] = criterion_data["failure_mode"]
+            elif criterion == "Puck":
+                row["puck_mode"] = criterion_data["failure_mode"]
+                row["puck_fracture_angle"] = float(criterion_data["fracture_angle"])
 
-            "tsai_wu_fi": result["tsai_wu_fi"],
+        # Preserve Hashin as the primary classification target for the ML pipeline.
+        row["failed"] = row["hashin_failed"]
 
-            # ------------------------------
-            # Classification target
-            # ------------------------------
-
-            "failed": int(result["failed"]),
-
-            # ------------------------------
-            # Failure information
-            # ------------------------------
-
-            "hashin_mode": result["hashin_mode"],
-
-            "hashin_ply": result["hashin_ply"],
-
-            "hashin_surface": result["hashin_surface"],
-        })
+        rows.append(row)
 
         if len(rows) % 1000 == 0:
-
-            print(
-                f"Generated "
-                f"{len(rows)}/{NUMBER_OF_SAMPLES}"
-            )
+            print(f"Generated {len(rows)}/{NUMBER_OF_SAMPLES}")
 
     # ==================================================
     # DATAFRAME
@@ -281,98 +288,60 @@ def generate_dataset():
     # SAVE
     # ==================================================
 
-    OUTPUT_PATH.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    df.to_csv(
-        OUTPUT_PATH,
-        index=False
-    )
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUTPUT_PATH, index=False)
 
     # ==================================================
     # SUMMARY
     # ==================================================
 
     failed_count = int(df["failed"].sum())
-
     safe_count = len(df) - failed_count
 
     print()
     print("-----------------------------------")
-    print("FINAL DATASET V2 COMPLETE")
+    print("FINAL DATASET V3 COMPLETE")
     print("-----------------------------------")
-
-    print(
-        f"Samples generated = {len(df)}"
-    )
-
-    print(
-        f"Total attempts = {attempts}"
-    )
-
-    print(
-        f"Boundary search failures = "
-        f"{boundary_failures}"
-    )
-
+    print(f"Samples generated = {len(df)}")
+    print(f"Total attempts = {attempts}")
+    print(f"Boundary search failures = {boundary_failures}")
+    print()
+    print(f"Safe samples = {safe_count}")
+    print(f"Failed samples = {failed_count}")
+    print(f"Failure rate = {failed_count / len(df) * 100:.2f}%")
     print()
 
-    print(
-        f"Safe samples = {safe_count}"
-    )
-
-    print(
-        f"Failed samples = {failed_count}"
-    )
-
-    print(
-        f"Failure rate = "
-        f"{failed_count / len(df) * 100:.2f}%"
-    )
-
-    print()
-
-    print(
-        f"Hashin FI minimum = "
-        f"{df['hashin_fi'].min():.6f}"
-    )
-
-    print(
-        f"Hashin FI maximum = "
-        f"{df['hashin_fi'].max():.6f}"
-    )
-
-    print(
-        f"Hashin FI mean = "
-        f"{df['hashin_fi'].mean():.6f}"
-    )
+    for criterion, prefix in {
+        "Maximum Stress": "max_stress",
+        "Maximum Strain": "max_strain",
+        "Tsai-Hill": "tsai_hill",
+        "Tsai-Wu": "tsai_wu",
+        "Hoffman": "hoffman",
+        "Hashin": "hashin",
+        "Puck": "puck",
+    }.items():
+        print(
+            f"{criterion:16s} FI: "
+            f"min={df[f'{prefix}_fi'].min():.6f}, "
+            f"max={df[f'{prefix}_fi'].max():.6f}, "
+            f"mean={df[f'{prefix}_fi'].mean():.6f}"
+        )
 
     print()
-
     print("Sampling regions:")
-    print(
-        df["sampling_region"].value_counts()
-    )
+    print(df["sampling_region"].value_counts())
 
     print()
-
-    print("Failure modes:")
-    print(
-        df["hashin_mode"].value_counts()
-    )
+    print("Hashin failure modes:")
+    print(df["hashin_mode"].value_counts())
 
     print()
+    print("Puck failure modes:")
+    print(df["puck_mode"].value_counts())
 
-    print(
-        f"Saved to: {OUTPUT_PATH}"
-    )
+    print()
+    print(f"Saved to: {OUTPUT_PATH}")
 
-
-# ==================================================
-# RUN
-# ==================================================
 
 if __name__ == "__main__":
     generate_dataset()

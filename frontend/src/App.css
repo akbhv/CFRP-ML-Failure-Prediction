@@ -149,7 +149,7 @@ input {
   font-size: 12px;
 }
 
-.card-header > span {
+.card-header>span {
   color: #697183;
   font-size: 11px;
   white-space: nowrap;
@@ -288,6 +288,7 @@ input:focus {
     font-size: 30px;
   }
 }
+
 .strengths-card {
   margin-top: 18px;
 }
@@ -447,6 +448,7 @@ input:focus {
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     opacity: 1;
@@ -470,6 +472,7 @@ input:focus {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
 /* =========================================
    EDITABLE LAYUP
    ========================================= */
@@ -638,7 +641,7 @@ select:disabled {
   gap: 10px;
 }
 
-.unit-selector > span {
+.unit-selector>span {
   font-size: 12px;
   font-weight: 600;
   color: #7f8aa3;
@@ -679,4 +682,44 @@ select:disabled {
     flex: 1;
     max-width: 180px;
   }
+}
+
+/* ============================================================
+   AI FAILURE PREDICTION
+   ============================================================ */
+
+.ml-card {
+  margin-top: 0;
+}
+
+.ml-result {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #252b38;
+  border-radius: 10px;
+  background: #0b0e14;
+}
+
+.ml-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.ml-result-header>span:first-child {
+  font-size: 14px;
+  color: #c8ccd5;
+}
+
+.ml-result .fi-value {
+  margin-top: 4px;
+}
+
+.ml-note {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #8d93a1;
+  font-size: 13px;
 }

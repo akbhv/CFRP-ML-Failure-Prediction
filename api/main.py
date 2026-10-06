@@ -1,6 +1,8 @@
 from typing import List
 import pandas as pd
 import numpy as np
+import joblib
+from tensorflow import keras
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -35,6 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================================
+# ML surrogate model
+# ============================================================
+
+ML_MODEL_PATH = "results/dnn_regression/dnn_hashin_fi.keras"
+ML_SCALER_PATH = "data/processed/ml/feature_scaler.pkl"
+
+ml_model = keras.models.load_model(ML_MODEL_PATH)
+ml_scaler = joblib.load(ML_SCALER_PATH)
 
 # ============================================================
 # Input schemas
@@ -73,6 +84,13 @@ class Loads(BaseModel):
     My: float = Field(0.0, description="Moment resultant My (N)")
     Mxy: float = Field(0.0, description="Twisting moment resultant Mxy (N)")
 
+class MLPredictionRequest(BaseModel):
+    Nx: float = 0.0
+    Ny: float = 0.0
+    Nxy: float = 0.0
+    Mx: float = 0.0
+    My: float = 0.0
+    Mxy: float = 0.0
 
 class AnalysisRequest(BaseModel):
     material: MaterialProperties
@@ -126,6 +144,50 @@ def health_check():
         "message": "CFRP Failure Prediction API is running.",
     }
 
+
+@app.post("/ml-predict")
+def ml_predict(request: MLPredictionRequest):
+    """
+    Predict Hashin failure index using the validated DNN surrogate.
+
+    Decision rule:
+        FI < 1  -> SAFE
+        FI >= 1 -> FAILURE
+    """
+
+    features = np.array([[
+        request.Nx,
+        request.Ny,
+        request.Nxy,
+        request.Mx,
+        request.My,
+        request.Mxy,
+    ]])
+
+    scaled_features = ml_scaler.transform(features)
+
+    predicted_fi = float(
+        ml_model.predict(scaled_features, verbose=0).ravel()[0]
+    )
+    
+    # Hashin failure index is physically non-negative.
+    predicted_fi = max(0.0, predicted_fi)
+
+    failed = predicted_fi >= 1.0
+
+    return {
+        "status": "success",
+        "model": {
+            "type": "DNN regression surrogate",
+            "architecture": "[64, 64, 32]",
+            "target": "Hashin failure index",
+        },
+        "prediction": {
+            "hashin_fi": predicted_fi,
+            "failed": failed,
+            "decision": "FAILURE" if failed else "SAFE",
+        },
+    }
 
 @app.get("/materials")
 def get_available_materials():

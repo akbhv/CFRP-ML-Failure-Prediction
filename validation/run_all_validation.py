@@ -3,6 +3,7 @@ import sys
 
 
 VALIDATION_MODULES = [
+    "validation.test_canonical_material",
     "validation.test_lamina",
     "validation.test_Q",
     "validation.test_transformation",
