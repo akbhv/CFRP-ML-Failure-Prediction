@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field
 from src.laminate_failure_comparison import evaluate_laminate_failure
 from src.laminate_failure_envelope import find_first_ply_failure
 from src.laminate_loading_study import run_loading_study
+from src.materials import FIBERS, MATRICES, get_fiber, get_matrix
+from src.micromechanics import calculate_lamina_properties
+from src.strengths import (
+    LAMINA_STRENGTHS,
+    find_lamina_strengths,
+)
+
 
 app = FastAPI(
     title="CFRP Failure Prediction API",
@@ -38,6 +45,16 @@ class MaterialProperties(BaseModel):
     E2: float = Field(..., gt=0, description="Transverse modulus (Pa)")
     G12: float = Field(..., gt=0, description="In-plane shear modulus (Pa)")
     nu12: float = Field(..., description="Major Poisson's ratio")
+
+class MaterialSelection(BaseModel):
+    fiber: str
+    matrix: str
+    Vf: float = Field(
+        ...,
+        gt=0,
+        lt=1,
+        description="Fiber volume fraction"
+    )
 
 
 class Strengths(BaseModel):
@@ -101,6 +118,7 @@ def serialize_criterion_results(criteria):
 # Routes
 # ============================================================
 
+
 @app.get("/health")
 def health_check():
     return {
@@ -108,6 +126,90 @@ def health_check():
         "message": "CFRP Failure Prediction API is running.",
     }
 
+
+@app.get("/materials")
+def get_available_materials():
+    return {
+        "fibers": list(FIBERS.keys()),
+        "matrices": list(MATRICES.keys()),
+    }
+
+
+@app.post("/material-properties")
+def calculate_material_properties(selection: MaterialSelection):
+    try:
+        fiber = get_fiber(selection.fiber)
+        matrix = get_matrix(selection.matrix)
+
+        E1, E2, G12, nu12 = calculate_lamina_properties(
+            Ef=fiber["E"],
+            Em=matrix["E"],
+            Gf=fiber["G"],
+            Gm=matrix["G"],
+            nu_f=fiber["nu"],
+            nu_m=matrix["nu"],
+            Vf=selection.Vf,
+        )
+
+        return {
+            "status": "success",
+            "fiber": selection.fiber,
+            "matrix": selection.matrix,
+            "fiber_volume_fraction": selection.Vf,
+            "properties": {
+                "E1": E1,
+                "E2": E2,
+                "G12": G12,
+                "nu12": nu12,
+            },
+        }
+
+    except KeyError as exc:
+        return {
+            "status": "error",
+            "message": str(exc),
+        }
+
+
+@app.get("/strengths")
+def get_available_strengths():
+    return {
+        "systems": list(LAMINA_STRENGTHS.keys())
+    }
+
+
+@app.get("/material-strengths")
+def get_material_strengths(fiber: str, matrix: str):
+    strengths = find_lamina_strengths(fiber, matrix)
+
+    if strengths is None:
+        return {
+            "status": "unavailable",
+            "fiber": fiber,
+            "matrix": matrix,
+            "message": (
+                "No verified lamina strength dataset is available "
+                "for this material combination."
+            ),
+        }
+
+    return {
+        "status": "success",
+        "fiber": fiber,
+        "matrix": matrix,
+        "system_id": strengths["system_id"],
+        "system_name": strengths["system_name"],
+        "strengths": {
+            "Xt": strengths["Xt"],
+            "Xc": strengths["Xc"],
+            "Yt": strengths["Yt"],
+            "Yc": strengths["Yc"],
+            "S": strengths["S"],
+        },
+        "source": strengths["source"],
+        "source_type": strengths["source_type"],
+        "notes": strengths["notes"],
+    }
 
 @app.post("/analyze")
 def analyze_laminate(request: AnalysisRequest):
