@@ -570,23 +570,30 @@ def puck_failure(stress_local, strengths, parameters=None):
             (-Yc / sigma_2_compression)
         )
 
-        # Puck distinguishes the compression/shear
-        # regimes using the governing failure mode.
-        if fi_mode_b >= fi_mode_c:
+            # Puck Mode B / Mode C transition
+        R_perp_perp_A = (
+            S * p_perp_perp_c / p_minus
+        )
 
+        tau_12_c = S * np.sqrt(
+            1.0 + 2.0 * p_perp_perp_c
+        )
+
+        # Mode B: shear-dominated transverse compression.
+        # Mode C: compression-dominated transverse compression.
+        if (
+            abs(tau_12) > 0.0
+            and abs(sigma_2) / abs(tau_12)
+            <= R_perp_perp_A / tau_12_c
+        ):
             fi_iff = fi_mode_b
             iff_mode = "IFF_B_compression_shear"
             fracture_angle = 0.0
-
         else:
-
             fi_iff = fi_mode_c
             iff_mode = "IFF_C_compression"
             fracture_angle = np.degrees(
-                np.arctan2(
-                    abs(tau_12),
-                    abs(sigma_2)
-                )
+                np.arctan2(abs(tau_12), abs(sigma_2))
             )
 
     failure_indices = {
