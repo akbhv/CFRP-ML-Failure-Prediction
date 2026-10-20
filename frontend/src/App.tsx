@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Layers3, Play, AlertCircle } from "lucide-react";
+import { Activity, Layers3, Play } from "lucide-react";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
@@ -203,6 +203,18 @@ function App() {
     failed: boolean;
     decision: string;
   } | null>(null);
+
+  const [mlPredictions, setMlPredictions] = useState<
+    Record<
+      string,
+      {
+        name: string;
+        failure_index: number;
+        failed: boolean;
+        decision: string;
+      }
+    > | null
+  >(null);
 
   // ============================================================
   // MATERIAL SELECTION
@@ -757,6 +769,7 @@ function App() {
       const data = await response.json();
 
       setMlResult(data.prediction);
+      setMlPredictions(data.predictions);
     } catch (err) {
       console.error(err);
 
@@ -776,6 +789,21 @@ function App() {
 
   return (
     <div className="app">
+      {error && (
+        <div
+          role="alert"
+          className="error-message"
+          style={{
+            padding: "12px 16px",
+            marginBottom: "16px",
+            border: "1px solid #dc2626",
+            borderRadius: "8px",
+            color: "#dc2626",
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {/* ======================================================
           HEADER
@@ -1319,6 +1347,76 @@ function App() {
 
         </section>
 
+
+        {results && (
+          <section className="card">
+            <div className="card-header">
+              <div>
+                <h3>Laminate Analysis Results</h3>
+                <p>Classical Laminate Theory and failure criteria</p>
+              </div>
+              <span>{results.laminate.number_of_plies} plies</span>
+            </div>
+
+            <h4>Governing Failure Indices</h4>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {Object.entries(results.governing_results).map(([name, result]) => (
+                <div
+                  key={name}
+                  style={{
+                    padding: "16px",
+                    border: "1px solid var(--border-color, #444)",
+                    borderRadius: "10px",
+                  }}
+                >
+                  <strong>{name}</strong>
+                  <div className="fi-value">
+                    {result.failure_index.toFixed(4)}
+                    <span> FI</span>
+                  </div>
+                  <span
+                    className={
+                      result.failure_index >= 1
+                        ? "failure-badge"
+                        : "safe-badge"
+                    }
+                  >
+                    {result.failure_index >= 1 ? "FAILURE" : "SAFE"}
+                  </span>
+                  <p className="ml-note">
+                    Governing ply: {result.ply} · {result.surface}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <h4 style={{ marginTop: "24px" }}>Laminate Response</h4>
+            <p>
+              Mid-plane strain:{" "}
+              {results.response.mid_plane_strain
+                .map((value) => value.toExponential(3))
+                .join(", ")}
+            </p>
+            <p>
+              Curvature:{" "}
+              {results.response.curvature
+                .map((value) => value.toExponential(3))
+                .join(", ")}
+            </p>
+            <p className="ml-note">
+              Failure is classified using FI ≥ 1.0. These are computational
+              predictions, not experimental validation.
+            </p>
+          </section>
+        )}
+
+
         <section className="card ml-card">
           <div className="card-header">
             <div>
@@ -1341,165 +1439,84 @@ function App() {
               : "Predict Failure with AI"}
           </button>
 
+
           {mlResult && (
             <div className="ml-result">
               <div className="ml-result-header">
-                <span>Predicted Hashin Failure Index</span>
-
+                <span>AI Failure Prediction Results</span>
                 <span
                   className={
-                    mlResult.failed
-                      ? "failure-badge"
-                      : "safe-badge"
+                    mlResult.failed ? "failure-badge" : "safe-badge"
                   }
                 >
-                  {mlResult.failed ? "FAILURE" : "SAFE"}
+                  Hashin: {mlResult.decision}
                 </span>
               </div>
 
-              <div className="fi-value">
-                {mlResult.hashin_fi.toFixed(4)}
-                <span>FI</span>
-              </div>
-
               <p className="ml-note">
-                Decision threshold: FI = 1.0
+                Seven failure criteria · Failure threshold: FI = 1.0
+              </p>
+
+              {mlPredictions && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                    gap: "12px",
+                    marginTop: "16px",
+                  }}
+                >
+                  {Object.entries(mlPredictions).map(([key, result]) => (
+                    <div
+                      key={key}
+                      style={{
+                        padding: "16px",
+                        border: "1px solid var(--border-color, #444)",
+                        borderRadius: "10px",
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "12px",
+                        }}
+                      >
+                        <strong>{result.name}</strong>
+                        <span
+                          className={
+                            result.failed ? "failure-badge" : "safe-badge"
+                          }
+                        >
+                          {result.decision}
+                        </span>
+                      </div>
+
+                      <div className="fi-value">
+                        {result.failure_index.toFixed(4)}
+                        <span> FI</span>
+                      </div>
+
+                      <p className="ml-note">
+                        {result.failed
+                          ? "Failure index ≥ 1.0"
+                          : "Failure index < 1.0"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="ml-note" style={{ marginTop: "16px" }}>
+                These values are predictions from trained surrogate models.
+                Experimental validation is pending.
               </p>
             </div>
           )}
         </section>
-
-        {/* ====================================================
-            ERROR
-            ==================================================== */}
-
-        {error && (
-          <section className="error-card">
-
-            <AlertCircle size={20} />
-
-            <div>
-              <strong>
-                Analysis failed
-              </strong>
-
-              <p>{error}</p>
-            </div>
-
-          </section>
-        )}
-
-        {/* ====================================================
-            RESULTS
-            ==================================================== */}
-
-        {results && (
-          <section className="results-section">
-
-            <div className="results-heading">
-
-              <div>
-                <p className="eyebrow">
-                  ANALYSIS RESULTS
-                </p>
-
-                <h2>
-                  Failure Criterion Comparison
-                </h2>
-              </div>
-
-              <div className="result-summary">
-                {results.laminate.number_of_plies} plies
-              </div>
-
-            </div>
-
-            <div className="results-grid">
-
-              {Object.entries(
-                results.governing_results
-              ).map(
-                ([criterion, result]) => (
-
-                  <div
-                    className="result-card"
-                    key={criterion}
-                  >
-
-                    <div className="result-card-header">
-
-                      <h3>{criterion}</h3>
-
-                      <span
-                        className={
-                          result.failure_index >= 1
-                            ? "failure-badge"
-                            : "safe-badge"
-                        }
-                      >
-                        {result.failure_index >= 1
-                          ? "FAILURE"
-                          : "SAFE"}
-                      </span>
-
-                    </div>
-
-                    <div className="fi-value">
-
-                      {result.failure_index.toFixed(4)}
-
-                      <span>FI</span>
-
-                    </div>
-
-                    <div className="result-details">
-
-                      <div>
-                        <span>Ply</span>
-
-                        <strong>
-                          {result.ply}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>Angle</span>
-
-                        <strong>
-                          {result.angle}°
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>Surface</span>
-
-                        <strong>
-                          {result.surface}
-                        </strong>
-                      </div>
-
-                      {result.failure_mode && (
-                        <div>
-                          <span>Mode</span>
-
-                          <strong>
-                            {result.failure_mode}
-                          </strong>
-                        </div>
-                      )}
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          </section>
-        )}
-
       </main>
     </div>
   );

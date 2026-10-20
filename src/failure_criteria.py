@@ -261,7 +261,7 @@ def hoffman_failure(stress_local, strengths):
     failure_index = (
         (sigma_1 ** 2) / (Xt * Xc)
         + (sigma_2 ** 2) / (Yt * Yc)
-        + (sigma_1 * sigma_2) / (Xt * Xc)
+        - (sigma_1 * sigma_2) / (Xt * Xc)
         + (1.0 / Xt - 1.0 / Xc) * sigma_1
         + (1.0 / Yt - 1.0 / Yc) * sigma_2
         + (tau_12 ** 2) / (S ** 2)

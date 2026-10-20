@@ -1,0 +1,265 @@
+
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from src.micromechanics import calculate_lamina_properties
+from src.materials import get_fiber, get_matrix
+from src.strengths import find_lamina_strengths
+from src.laminate_failure_comparison import (
+    evaluate_laminate_failure,
+    find_governing_failure,
+)
+
+
+# ---------------------------------------------------------
+# Paths: never overwrite the original or Puck-corrected data
+# ---------------------------------------------------------
+INPUT_PATH = Path(
+    "data/processed/failure_dataset_v2_puck_corrected_exact.csv"
+)
+OUTPUT_PATH = Path(
+    "data/processed/failure_dataset_v2_hoffman_corrected.csv"
+)
+
+HOFFMAN_COLUMNS = [
+    "hoffman_fi",
+    "hoffman_failed",
+    "hoffman_ply",
+    "hoffman_angle",
+    "hoffman_surface",
+]
+
+# Canonical laminate configuration from generate_dataset_final.py
+FIBER_NAME = "T300"
+MATRIX_NAME = "Standard Epoxy"
+VF = 0.60
+PLY_ANGLES = [0, 45, -45, 90, 90, -45, 45, 0]
+PLY_THICKNESS = 0.125e-3
+
+CRITERION = "Hoffman"
+
+
+def main():
+    if not INPUT_PATH.is_file():
+        raise FileNotFoundError(
+            f"Input dataset not found: {INPUT_PATH}"
+        )
+
+    if OUTPUT_PATH.exists():
+        raise FileExistsError(
+            f"Refusing to overwrite existing output: {OUTPUT_PATH}\n"
+            "Rename or move that file before rerunning."
+        )
+
+    print("Loading input dataset...")
+    original = pd.read_csv(INPUT_PATH)
+    corrected = original.copy(deep=True)
+
+    required_columns = {
+        "Nx", "Ny", "Nxy", "Mx", "My", "Mxy",
+        *HOFFMAN_COLUMNS,
+    }
+    missing = required_columns.difference(original.columns)
+    if missing:
+        raise ValueError(
+            f"Required columns are missing: {sorted(missing)}"
+        )
+
+    print("Loading canonical material properties...")
+    fiber = get_fiber(FIBER_NAME)
+    matrix = get_matrix(MATRIX_NAME)
+
+    E1, E2, G12, nu12 = calculate_lamina_properties(
+        fiber["E"],
+        matrix["E"],
+        fiber["G"],
+        matrix["G"],
+        fiber["nu"],
+        matrix["nu"],
+        VF,
+    )
+
+    strength_data = find_lamina_strengths(
+        FIBER_NAME,
+        MATRIX_NAME,
+    )
+    if strength_data is None:
+        raise ValueError(
+            f"No strength data found for {FIBER_NAME}/{MATRIX_NAME}"
+        )
+
+    strengths = {
+        key: float(strength_data[key])
+        for key in ("Xt", "Xc", "Yt", "Yc", "S")
+    }
+
+    print(f"Rows to recompute: {len(original):,}")
+    print("Recomputing Hoffman FI at all ply surfaces...")
+
+    new_fi = []
+    new_failed = []
+    new_ply = []
+    new_angle = []
+    new_surface = []
+
+    for row_number, row in original.iterrows():
+        N = row[["Nx", "Ny", "Nxy"]].to_numpy(dtype=float)
+        M = row[["Mx", "My", "Mxy"]].to_numpy(dtype=float)
+
+        laminate_result = evaluate_laminate_failure(
+            E1,
+            E2,
+            G12,
+            nu12,
+            PLY_ANGLES,
+            PLY_THICKNESS,
+            N,
+            M,
+            strengths,
+        )
+
+        governing = find_governing_failure(
+            laminate_result,
+            CRITERION,
+        )
+        criterion_result = governing["criteria"][CRITERION]
+
+        fi = float(criterion_result["failure_index"])
+        if not np.isfinite(fi):
+            raise ValueError(
+                f"Non-finite Hoffman FI at dataset row {row_number}"
+            )
+
+        new_fi.append(fi)
+        # Match the criterion's existing implementation exactly.
+        new_failed.append(int(bool(criterion_result["failed"])))
+        new_ply.append(int(governing["ply"]))
+        new_angle.append(float(governing["angle"]))
+        new_surface.append(str(governing["surface"]))
+
+        if (row_number + 1) % 1000 == 0:
+            print(f"Processed {row_number + 1:,}/{len(original):,}")
+
+    corrected["hoffman_fi"] = new_fi
+    corrected["hoffman_failed"] = new_failed
+    corrected["hoffman_ply"] = new_ply
+    corrected["hoffman_angle"] = new_angle
+    corrected["hoffman_surface"] = new_surface
+
+    # -----------------------------------------------------
+    # Validation before writing
+    # -----------------------------------------------------
+    if len(corrected) != len(original):
+        raise AssertionError("Row count changed.")
+
+    non_hoffman_columns = [
+        c for c in original.columns if c not in HOFFMAN_COLUMNS
+    ]
+
+    if not original[non_hoffman_columns].equals(
+        corrected[non_hoffman_columns]
+    ):
+        raise AssertionError(
+            "A non-Hoffman column changed; refusing to save."
+        )
+
+    if not np.isfinite(
+        corrected["hoffman_fi"].to_numpy(dtype=float)
+    ).all():
+        raise AssertionError("Non-finite corrected Hoffman FI found.")
+
+    # Hoffman criterion defines failure at FI >= 1, with the
+    # same numerical tolerance used in failure_criteria.py.
+    fi_values = corrected["hoffman_fi"].to_numpy(dtype=float)
+    expected_failed = (
+        np.isclose(fi_values, 1.0, atol=1e-12) | (fi_values > 1.0)
+    ).astype(int)
+
+    if not np.array_equal(
+        corrected["hoffman_failed"].to_numpy(dtype=int),
+        expected_failed,
+    ):
+        raise AssertionError(
+            "Hoffman labels do not agree with the implemented FI threshold."
+        )
+
+    # Ensure all non-Hoffman fields are identical before saving.
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    corrected.to_csv(OUTPUT_PATH, index=False)
+
+    # Reload and verify the written CSV.
+    saved = pd.read_csv(OUTPUT_PATH)
+
+    if len(saved) != len(original):
+        raise AssertionError("Saved output row count mismatch.")
+
+    # CSV serialization can introduce tiny floating-point round-trip
+# differences. Compare numeric columns with a strict tolerance and
+# categorical/non-numeric columns exactly.
+for column in non_hoffman_columns:
+    before = original[column]
+    after = saved[column]
+
+    if pd.api.types.is_numeric_dtype(before):
+        before_values = before.to_numpy(dtype=float)
+        after_values = after.to_numpy(dtype=float)
+
+        if not np.allclose(
+            before_values,
+            after_values,
+            rtol=1e-12,
+            atol=1e-12,
+            equal_nan=True,
+        ):
+            raise AssertionError(
+                f"Saved non-Hoffman numeric column changed: {column}"
+            )
+    else:
+        same = before.eq(after) | (before.isna() & after.isna())
+        if not bool(same.all()):
+            raise AssertionError(
+                f"Saved non-Hoffman column changed: {column}"
+            )
+
+    fi_delta = (
+        corrected["hoffman_fi"].to_numpy(dtype=float)
+        - original["hoffman_fi"].to_numpy(dtype=float)
+    )
+    fi_changed = ~np.isclose(
+        corrected["hoffman_fi"].to_numpy(dtype=float),
+        original["hoffman_fi"].to_numpy(dtype=float),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    label_changed = (
+        corrected["hoffman_failed"].to_numpy(dtype=int)
+        != original["hoffman_failed"].to_numpy(dtype=int)
+    )
+
+    location_changed = np.zeros(len(original), dtype=bool)
+    for column in ("hoffman_ply", "hoffman_angle", "hoffman_surface"):
+        location_changed |= (
+            corrected[column].astype(str).to_numpy()
+            != original[column].astype(str).to_numpy()
+        )
+
+    print("\n" + "=" * 60)
+    print("HOFFMAN DATASET CORRECTION COMPLETE")
+    print("=" * 60)
+    print(f"Input rows: {len(original):,}")
+    print(f"Output: {OUTPUT_PATH}")
+    print(f"Hoffman FI values changed: {int(fi_changed.sum()):,}")
+    print(f"Hoffman labels changed: {int(label_changed.sum()):,}")
+    print(f"Governing locations changed: {int(location_changed.sum()):,}")
+    print(f"Maximum absolute FI change: {np.max(np.abs(fi_delta)):.12g}")
+    print(f"Original Hoffman failures: {int(original['hoffman_failed'].sum()):,}")
+    print(f"Corrected Hoffman failures: {int(corrected['hoffman_failed'].sum()):,}")
+    print("All non-Hoffman columns preserved: PASS")
+    print("Hoffman labels match implemented threshold: PASS")
+    print("Saved CSV reloaded and checked: PASS")
+
+
+if __name__ == "__main__":
+    main()

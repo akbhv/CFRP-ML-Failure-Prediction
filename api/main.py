@@ -2,6 +2,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 import joblib
+from pathlib import Path
 from tensorflow import keras
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,15 +38,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ============================================================
-# ML surrogate model
+# ML surrogate models — corrected v2, seven targets
 # ============================================================
 
-ML_MODEL_PATH = "results/dnn_regression/dnn_hashin_fi.keras"
-ML_SCALER_PATH = "data/processed/ml/feature_scaler.pkl"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-ml_model = keras.models.load_model(ML_MODEL_PATH)
-ml_scaler = joblib.load(ML_SCALER_PATH)
+ML_SPLIT_DIR = (
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "ml_multitarget_v2_hoffman_corrected"
+)
+
+ML_RESULTS_DIR = (
+    PROJECT_ROOT
+    / "results"
+    / "multitarget_dnn_v2_hoffman_corrected"
+)
+
+ML_TARGETS = {
+    "max_stress_fi": "Maximum Stress",
+    "max_strain_fi": "Maximum Strain",
+    "tsai_hill_fi": "Tsai-Hill",
+    "tsai_wu_fi": "Tsai-Wu",
+    "hoffman_fi": "Hoffman",
+    "hashin_fi": "Hashin",
+    "puck_fi": "Puck",
+}
+
+ML_FEATURES = ["Nx", "Ny", "Nxy", "Mx", "My", "Mxy"]
+
+ML_FAILURE_THRESHOLD = 1.0
+
+ml_scaler = joblib.load(
+    ML_SPLIT_DIR / "feature_scaler.joblib"
+)
+
+ml_models = {
+    target: keras.models.load_model(
+        ML_RESULTS_DIR / target / f"{target}_model.keras"
+    )
+    for target in ML_TARGETS
+}
+
 
 # ============================================================
 # Input schemas
@@ -145,49 +182,75 @@ def health_check():
     }
 
 
+
 @app.post("/ml-predict")
 def ml_predict(request: MLPredictionRequest):
     """
-    Predict Hashin failure index using the validated DNN surrogate.
+    Predict seven failure indices using the corrected v2 DNN
+    surrogate models.
 
     Decision rule:
         FI < 1  -> SAFE
         FI >= 1 -> FAILURE
+
+    Predictions are surrogate estimates, not experimental validation.
     """
 
-    features = np.array([[
-        request.Nx,
-        request.Ny,
-        request.Nxy,
-        request.Mx,
-        request.My,
-        request.Mxy,
-    ]])
+    features = np.array(
+        [[
+            request.Nx,
+            request.Ny,
+            request.Nxy,
+            request.Mx,
+            request.My,
+            request.Mxy,
+        ]],
+        dtype=np.float32,
+    )
 
     scaled_features = ml_scaler.transform(features)
 
-    predicted_fi = float(
-        ml_model.predict(scaled_features, verbose=0).ravel()[0]
-    )
-    
-    # Hashin failure index is physically non-negative.
-    predicted_fi = max(0.0, predicted_fi)
+    predictions = {}
 
-    failed = predicted_fi >= 1.0
+    for target, display_name in ML_TARGETS.items():
+        predicted_fi = float(
+            ml_models[target]
+            .predict(scaled_features, verbose=0)
+            .reshape(-1)[0]
+        )
+
+        # Failure indices are physically non-negative.
+        predicted_fi = max(0.0, predicted_fi)
+        failed = predicted_fi >= ML_FAILURE_THRESHOLD
+
+        predictions[target] = {
+            "name": display_name,
+            "failure_index": predicted_fi,
+            "failed": failed,
+            "decision": "FAILURE" if failed else "SAFE",
+        }
+
+    # Preserve the original response field expected by the current UI.
+    hashin_prediction = predictions["hashin_fi"]
 
     return {
         "status": "success",
         "model": {
             "type": "DNN regression surrogate",
+            "version": "v2_hoffman_corrected",
             "architecture": "[64, 64, 32]",
-            "target": "Hashin failure index",
+            "targets": list(ML_TARGETS.keys()),
+            "failure_threshold": ML_FAILURE_THRESHOLD,
+            "experimental_validation": "pending",
         },
         "prediction": {
-            "hashin_fi": predicted_fi,
-            "failed": failed,
-            "decision": "FAILURE" if failed else "SAFE",
+            "hashin_fi": hashin_prediction["failure_index"],
+            "failed": hashin_prediction["failed"],
+            "decision": hashin_prediction["decision"],
         },
+        "predictions": predictions,
     }
+
 
 @app.get("/materials")
 def get_available_materials():
