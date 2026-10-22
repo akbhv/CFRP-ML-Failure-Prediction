@@ -87,7 +87,7 @@ NUMBER_OF_SAMPLES = 20000
 RANDOM_SEED = 2026
 
 OUTPUT_PATH = Path(
-    "data/processed/failure_dataset_v2.csv"
+    "data/processed/failure_dataset_v3_scaled.csv"
 )
 
 
@@ -95,15 +95,109 @@ OUTPUT_PATH = Path(
 # RANDOM LOAD DIRECTION
 # ==================================================
 
-def generate_random_load_direction(rng):
-    direction = rng.normal(size=6)
-    norm = np.linalg.norm(direction)
 
-    while norm == 0:
+LOAD_SCALES = np.array([
+    100_000.0,  # Nx (N/m)
+     50_000.0,  # Ny (N/m)
+     50_000.0,  # Nxy (N/m)
+        100.0,  # Mx (N)
+        100.0,  # My (N)
+        100.0,  # Mxy (N)
+])
+
+
+def generate_random_load_direction(rng):
+    """Generate a random direction in scaled load space."""
+    while True:
         direction = rng.normal(size=6)
         norm = np.linalg.norm(direction)
 
-    return direction / norm
+        if norm > 0:
+            break
+
+    direction /= norm
+    return direction * LOAD_SCALES
+
+
+
+def find_hashin_failure_scale_v3(
+    E1,
+    E2,
+    G12,
+    nu12,
+    strengths,
+    ply_angles,
+    ply_thickness,
+    load_direction,
+    initial_scale=1.0,
+    growth_factor=2.0,
+    max_scale=1e6,
+    tolerance=1e-5,
+    max_iterations=100,
+):
+    """Find Hashin FI = 1 along a scaled physical load direction."""
+    direction = np.asarray(load_direction, dtype=float)
+
+    if direction.shape != (6,):
+        raise ValueError("load_direction must contain exactly 6 values.")
+
+    if not np.all(np.isfinite(direction)) or np.linalg.norm(direction) == 0:
+        raise ValueError("load_direction must be finite and nonzero.")
+
+    if initial_scale <= 0 or growth_factor <= 1 or max_scale <= 0:
+        raise ValueError("Invalid boundary-search scale settings.")
+
+    def evaluate_at_scale(scale):
+        load_vector = scale * direction
+        return evaluate_laminate_failure(
+            E1,
+            E2,
+            G12,
+            nu12,
+            ply_angles,
+            ply_thickness,
+            load_vector[:3],
+            load_vector[3:],
+            strengths,
+        )
+
+    def hashin_fi(result):
+        governing = find_governing_failure(result, "Hashin")
+        fi = float(governing["criteria"]["Hashin"]["failure_index"])
+
+        if not np.isfinite(fi):
+            raise ValueError(f"Non-finite Hashin failure index: {fi}")
+
+        return fi
+    lower_scale = 0.0
+    upper_scale = initial_scale
+    result = evaluate_at_scale(upper_scale)
+
+    while hashin_fi(result) < 1.0 and upper_scale < max_scale:
+        lower_scale = upper_scale
+        upper_scale = min(upper_scale * growth_factor, max_scale)
+        result = evaluate_at_scale(upper_scale)
+
+    if hashin_fi(result) < 1.0:
+        return None, result
+
+    for _ in range(max_iterations):
+        middle_scale = (lower_scale + upper_scale) / 2.0
+        middle_result = evaluate_at_scale(middle_scale)
+
+        if hashin_fi(middle_result) < 1.0:
+            lower_scale = middle_scale
+        else:
+            upper_scale = middle_scale
+
+        if upper_scale - lower_scale < tolerance * upper_scale:
+            break
+
+    result = evaluate_at_scale(upper_scale)
+    return upper_scale, result
+
+
+
 
 
 # ==================================================
@@ -166,7 +260,7 @@ def generate_dataset():
         # Hashin failure boundary for boundary-aware sampling
         # ------------------------------------------
 
-        failure_scale, boundary_result = find_hashin_failure_scale(
+        failure_scale, boundary_result = find_hashin_failure_scale_v3(
             E1,
             E2,
             G12,

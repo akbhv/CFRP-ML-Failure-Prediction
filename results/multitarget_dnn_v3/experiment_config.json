@@ -1,0 +1,47 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v3_scaled.csv",
+  "row_count": 20000,
+  "features": [
+    "Nx",
+    "Ny",
+    "Nxy",
+    "Mx",
+    "My",
+    "Mxy"
+  ],
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "split": {
+    "train": 14000,
+    "validation": 3000,
+    "test": 3000
+  },
+  "split_method": "70/15/15; random_state=42; stratified by existing generic failed label",
+  "scaler": "StandardScaler fit on training features only",
+  "architecture": [
+    "Dense(64, relu)",
+    "Dense(64, relu)",
+    "Dense(32, relu)",
+    "Dense(1, linear)"
+  ],
+  "optimizer": "Adam",
+  "learning_rate": 0.001,
+  "loss": "MSE",
+  "batch_size": 32,
+  "max_epochs": 300,
+  "early_stopping": {
+    "monitor": "val_loss",
+    "patience": 30,
+    "restore_best_weights": true
+  },
+  "failure_threshold": 1.0,
+  "seed_base": 42,
+  "note": "Independent physical validation of the Puck equations is separate from dataset integrity checks."
+}

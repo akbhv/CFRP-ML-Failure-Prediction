@@ -267,7 +267,7 @@ def hoffman_failure(stress_local, strengths):
         + (tau_12 ** 2) / (S ** 2)
     )
 
-    failed = np.isclose(failure_index, 1.0, atol=1e-12) or failure_index > 1.0
+    failed = failure_index >= 1.0
 
     return failure_index, failed
 
