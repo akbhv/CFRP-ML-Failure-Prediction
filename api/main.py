@@ -29,6 +29,7 @@ app = FastAPI(
 
 
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -36,12 +37,13 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
-        "https://cfrp-ml-failure-prediction-5wy06fxak-akhbv.vercel.app",
     ],
+    allow_origin_regex=r"https://cfrp-ml-failure-prediction.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 
