@@ -44,7 +44,7 @@ app.add_middleware(
 
 
 # ============================================================
-# ML surrogate models — corrected v2, seven targets
+# ML surrogate models - V5, seven targets
 # ============================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,13 +53,13 @@ ML_SPLIT_DIR = (
     PROJECT_ROOT
     / "data"
     / "processed"
-    / "ml_multitarget_v2_hoffman_corrected"
+    / "ml_multitarget_v5"
 )
 
 ML_RESULTS_DIR = (
     PROJECT_ROOT
     / "results"
-    / "multitarget_dnn_v2_hoffman_corrected"
+    / "multitarget_dnn_v5"
 )
 
 ML_TARGETS = {
@@ -241,7 +241,7 @@ def ml_predict(request: MLPredictionRequest):
         "status": "success",
         "model": {
             "type": "DNN regression surrogate",
-            "version": "v2_hoffman_corrected",
+            "version": "v5",
             "architecture": "[64, 64, 32]",
             "targets": list(ML_TARGETS.keys()),
             "failure_threshold": ML_FAILURE_THRESHOLD,
