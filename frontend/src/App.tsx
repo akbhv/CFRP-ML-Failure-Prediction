@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Layers3, Play } from "lucide-react";
+import { Activity, Layers3, Play, Sun, Moon } from "lucide-react";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
@@ -181,15 +181,49 @@ type MaterialStrengthsResponse = {
   message?: string;
 };
 
+type MaterialCompatibility = {
+  fiber: string;
+  matrix: string;
+  system_id: string;
+  system_name: string;
+};
+
 type MaterialsResponse = {
   fibers: string[];
   matrices: string[];
+  compatible_systems: MaterialCompatibility[];
 };
 
 type UnitSystem = "metric" | "imperial";
 
+type Theme = "dark" | "light";
+
+function getInitialTheme(): Theme {
+  try {
+    const savedTheme = window.localStorage.getItem("cfrp-theme");
+    return savedTheme === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
 function App() {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [status, setStatus] = useState("Ready");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try {
+      window.localStorage.setItem("cfrp-theme", theme);
+    } catch {
+      // Theme still works for this session if storage is unavailable.
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark");
+  };
   const [unitSystem, setUnitSystem] =
     useState<UnitSystem>("metric");
   const [loading, setLoading] = useState(false);
@@ -221,7 +255,9 @@ function App() {
   // ============================================================
 
   const [fibers, setFibers] = useState<string[]>([]);
-  const [matrices, setMatrices] = useState<string[]>([]);
+  const [compatibleSystems, setCompatibleSystems] = useState<
+    MaterialCompatibility[]
+  >([]);
 
   const [fiber, setFiber] = useState("T300");
   const [matrix, setMatrix] = useState("Standard Epoxy");
@@ -245,6 +281,8 @@ function App() {
   const [Yt, setYt] = useState("48");
   const [Yc, setYc] = useState("200");
   const [S, setS] = useState("79");
+  const [strengthsAvailable, setStrengthsAvailable] = useState(false);
+  const [strengthSystemName, setStrengthSystemName] = useState("");
 
   // ============================================================
   // LAMINATE
@@ -446,6 +484,8 @@ function App() {
   // ============================================================
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadMaterials = async () => {
       try {
         const response = await fetch(`${API_URL}/materials`);
@@ -456,28 +496,34 @@ function App() {
           );
         }
 
-        const data: MaterialsResponse =
-          await response.json();
+        const data: MaterialsResponse = await response.json();
+
+        if (cancelled) return;
 
         setFibers(data.fibers);
-        setMatrices(data.matrices);
+        setCompatibleSystems(data.compatible_systems);
 
-        if (
-          data.fibers.length > 0 &&
-          !data.fibers.includes(fiber)
-        ) {
-          setFiber(data.fibers[0]);
-        }
+        const initialSystem =
+          data.compatible_systems.find(
+            (system) =>
+              system.fiber === "T300" &&
+              system.matrix === "Standard Epoxy"
+          ) ?? data.compatible_systems[0];
 
-        if (
-          data.matrices.length > 0 &&
-          !data.matrices.includes(matrix)
-        ) {
-          setMatrix(data.matrices[0]);
+        if (initialSystem) {
+          setFiber(initialSystem.fiber);
+          setMatrix(initialSystem.matrix);
+        } else {
+          setStrengthsAvailable(false);
+          setStrengthSystemName("");
+          setError(
+            "No supported material-strength systems are configured."
+          );
         }
       } catch (err) {
-        console.error(err);
+        if (cancelled) return;
 
+        console.error(err);
         setError(
           "Could not load the material database. Make sure the FastAPI server is running."
         );
@@ -485,6 +531,10 @@ function App() {
     };
 
     loadMaterials();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ============================================================
@@ -506,6 +556,13 @@ function App() {
       }
 
       setMaterialLoading(true);
+      setStrengthsAvailable(false);
+      setStrengthSystemName("");
+      setXt("");
+      setXc("");
+      setYt("");
+      setYc("");
+      setS("");
 
       try {
         // ==========================================================
@@ -594,10 +651,11 @@ function App() {
           strengthData.status !== "success" ||
           !strengthData.strengths
         ) {
-          throw new Error(
+          setError(
             strengthData.message ||
             `No verified strength dataset is available for ${fiber}/${matrix}.`
           );
+          return;
         }
 
         setXt(
@@ -635,6 +693,13 @@ function App() {
           ).toFixed(4)
         );
 
+
+        setStrengthsAvailable(true);
+        setStrengthSystemName(
+          strengthData.system_name || strengthData.system_id || ""
+        );
+        setError("");
+
       } catch (err) {
         console.error(err);
 
@@ -652,10 +717,88 @@ function App() {
   }, [fiber, matrix, Vf, unitSystem]);
 
   // ============================================================
+  // INPUT VALIDATION
+  // ============================================================
+
+  const validateInputs = (): string | null => {
+    const numericFields: Array<[string, string]> = [
+      ["Fiber volume fraction", Vf],
+      ["Ply thickness", plyThickness],
+      ["E₁", E1],
+      ["E₂", E2],
+      ["G₁₂", G12],
+      ["ν₁₂", nu12],
+      ["Longitudinal tensile strength (Xt)", Xt],
+      ["Longitudinal compressive strength (Xc)", Xc],
+      ["Transverse tensile strength (Yt)", Yt],
+      ["Transverse compressive strength (Yc)", Yc],
+      ["Shear strength (S)", S],
+      ["Nx", Nx],
+      ["Ny", Ny],
+      ["Nxy", Nxy],
+      ["Mx", Mx],
+      ["My", My],
+      ["Mxy", Mxy],
+    ];
+
+    for (const [label, rawValue] of numericFields) {
+      if (rawValue.trim() === "" || !Number.isFinite(Number(rawValue))) {
+        return `${label} must contain a valid number.`;
+      }
+    }
+
+    const vf = Number(Vf);
+    if (vf <= 0 || vf >= 1) {
+      return "Fiber volume fraction must be greater than 0 and less than 1 (for example, 0.60).";
+    }
+
+    if (Number(plyThickness) <= 0) {
+      return "Ply thickness must be greater than 0.";
+    }
+
+    if (layup.length < 1) {
+      return "The laminate must contain at least one ply.";
+    }
+
+    if (layup.some((angle) => !Number.isFinite(angle) || angle < -180 || angle > 180)) {
+      return "Every ply angle must be between -180° and 180°.";
+    }
+
+    if ([Number(E1), Number(E2), Number(G12)].some((value) => value <= 0)) {
+      return "Elastic moduli E₁, E₂, and G₁₂ must be greater than 0.";
+    }
+
+    const poisson = Number(nu12);
+    if (poisson <= 0 || poisson >= 0.5) {
+      return "Poisson's ratio ν₁₂ must be greater than 0 and less than 0.5.";
+    }
+
+    if ([Number(Xt), Number(Xc), Number(Yt), Number(Yc), Number(S)].some((value) => value <= 0)) {
+      return "All strength values must be greater than 0.";
+    }
+
+    return null;
+  };
+
+  // ============================================================
   // RUN ANALYSIS
   // ============================================================
 
   const runAnalysis = async () => {
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
+      setStatus("Check inputs");
+      setResults(null);
+      return;
+    }
+
+    if (!strengthsAvailable) {
+      setError(
+        "Failure analysis is unavailable because this material combination has no verified strength dataset."
+      );
+      return;
+    }
     setLoading(true);
     setError("");
     setResults(null);
@@ -735,6 +878,15 @@ function App() {
   };
 
   const runMLPrediction = async () => {
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
+      setStatus("Check inputs");
+      setMlResult(null);
+      setMlPredictions(null);
+      return;
+    }
+
     setMlLoading(true);
     setError("");
 
@@ -786,6 +938,10 @@ function App() {
   // ============================================================
   // UI
   // ============================================================
+  const compatibleMatrices = compatibleSystems
+    .filter((system) => system.fiber === fiber)
+    .map((system) => system.matrix);
+
 
   return (
     <div className="app">
@@ -841,6 +997,17 @@ function App() {
             </option>
           </select>
         </div>
+
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        >
+          {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+        </button>
 
         <div className="status">
           <span
@@ -905,9 +1072,24 @@ function App() {
 
               <select
                 value={fiber}
-                onChange={(e) =>
-                  setFiber(e.target.value)
-                }
+                onChange={(e) => {
+                  const nextFiber = e.target.value;
+                  const nextSystem = compatibleSystems.find(
+                    (system) => system.fiber === nextFiber
+                  );
+
+                  setFiber(nextFiber);
+                  setStrengthsAvailable(false);
+                  setStrengthSystemName("");
+
+                  if (nextSystem) {
+                    setMatrix(nextSystem.matrix);
+                  } else {
+                    setError(
+                      `No verified strength dataset is configured for ${nextFiber}.`
+                    );
+                  }
+                }}
                 disabled={
                   fibers.length === 0 ||
                   materialLoading
@@ -929,19 +1111,18 @@ function App() {
 
               <select
                 value={matrix}
-                onChange={(e) =>
-                  setMatrix(e.target.value)
-                }
+                onChange={(e) => {
+                  setMatrix(e.target.value);
+                  setStrengthsAvailable(false);
+                  setStrengthSystemName("");
+                }}
                 disabled={
-                  matrices.length === 0 ||
+                  compatibleMatrices.length === 0 ||
                   materialLoading
                 }
               >
-                {matrices.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
+                {compatibleMatrices.map((item) => (
+                  <option key={item} value={item}>
                     {item}
                   </option>
                 ))}
@@ -958,14 +1139,26 @@ function App() {
                   max="0.99"
                   step="0.01"
                   value={Vf}
-                  onChange={(e) =>
-                    setVf(e.target.value)
-                  }
+                  aria-invalid={Vf.trim() === "" || !Number.isFinite(Number(Vf)) || Number(Vf) <= 0 || Number(Vf) >= 1}
+                  aria-describedby="vf-help"
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setVf(nextValue);
+                    const nextVf = Number(nextValue);
+                    if (nextValue.trim() === "" || !Number.isFinite(nextVf) || nextVf <= 0 || nextVf >= 1) {
+                      setError("Fiber volume fraction must be greater than 0 and less than 1 (for example, 0.60).");
+                    } else {
+                      setError("");
+                    }
+                  }}
                   disabled={materialLoading}
                 />
 
                 <span>Vf</span>
               </div>
+              <span id="vf-help" className="ml-note">
+                Enter a value greater than 0 and less than 1 (e.g. 0.60).
+              </span>
             </label>
 
           </div>
@@ -1176,6 +1369,16 @@ function App() {
             <div>
               <h3>Lamina Strengths</h3>
 
+              {strengthsAvailable ? (
+                <p className="strength-source-status">
+                  Verified dataset: {strengthSystemName}
+                </p>
+              ) : (
+                <p className="strength-source-status strength-unavailable">
+                  No verified strength dataset loaded for this selection.
+                </p>
+              )}
+
               <p>
                 Failure criterion input values
               </p>
@@ -1333,7 +1536,9 @@ function App() {
             className="run-button"
             onClick={runAnalysis}
             disabled={
-              loading || materialLoading
+              loading ||
+              materialLoading ||
+              !strengthsAvailable
             }
           >
             <Play size={18} />
@@ -1432,7 +1637,7 @@ function App() {
           <button
             className="run-button"
             onClick={runMLPrediction}
-            disabled={mlLoading}
+            disabled={mlLoading || materialLoading}
           >
             {mlLoading
               ? "Predicting..."
@@ -1512,7 +1717,7 @@ function App() {
 
               <p className="ml-note" style={{ marginTop: "16px" }}>
                 These values are predictions from trained surrogate models.
-                Experimental validation is pending.
+                Experimental validation is outside this project's scope.
               </p>
             </div>
           )}

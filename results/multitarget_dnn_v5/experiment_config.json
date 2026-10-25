@@ -1,0 +1,94 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v5.csv",
+  "row_count": 25001,
+  "features": [
+    "Nx",
+    "Ny",
+    "Nxy",
+    "Mx",
+    "My",
+    "Mxy"
+  ],
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "split": {
+    "train": 17501,
+    "validation": 3750,
+    "test": 3750,
+    "zero_load_anchor_index": 0,
+    "zero_load_anchor_in": "training",
+    "train_region_counts": {
+      "high_failed": 3500,
+      "low_safe": 2100,
+      "near_boundary_safe": 2100,
+      "boundary": 2100,
+      "moderate_failed": 2100,
+      "moderate_safe": 1750,
+      "near_boundary_failed": 1750,
+      "very_low_load": 700,
+      "low_load_100": 700,
+      "low_load_1000": 700,
+      "zero_load": 1
+    },
+    "validation_region_counts": {
+      "high_failed": 750,
+      "low_safe": 450,
+      "near_boundary_safe": 450,
+      "boundary": 450,
+      "moderate_failed": 450,
+      "moderate_safe": 375,
+      "near_boundary_failed": 375,
+      "very_low_load": 150,
+      "low_load_100": 150,
+      "low_load_1000": 150
+    },
+    "test_region_counts": {
+      "high_failed": 750,
+      "low_safe": 450,
+      "near_boundary_safe": 450,
+      "boundary": 450,
+      "moderate_failed": 450,
+      "moderate_safe": 375,
+      "near_boundary_failed": 375,
+      "very_low_load": 150,
+      "low_load_100": 150,
+      "low_load_1000": 150
+    }
+  },
+  "split_method": "70/15/15 split of nonzero rows stratified by sampling_region; the unique zero-load anchor is added to training",
+  "scaler": "StandardScaler fit on training features only",
+  "architecture": [
+    "Dense(64, relu)",
+    "Dense(64, relu)",
+    "Dense(32, relu)",
+    "Dense(1, linear)"
+  ],
+  "optimizer": "Adam",
+  "learning_rate": 0.001,
+  "loss": "MSE",
+  "batch_size": 32,
+  "max_epochs": 300,
+  "early_stopping": {
+    "monitor": "val_loss",
+    "patience": 30,
+    "restore_best_weights": true
+  },
+  "failure_threshold": 1.0,
+  "near_boundary_interval": [
+    0.9,
+    1.1
+  ],
+  "seed_base": 20261025,
+  "limitations": [
+    "The exact-zero anchor is in training, so its prediction is an in-sample physical-anchor check, not an independent test.",
+    "Dataset/API agreement is a computational consistency check, not experimental validation.",
+    "Performance must be interpreted separately for each sampling region and load magnitude."
+  ]
+}

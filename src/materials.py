@@ -104,6 +104,25 @@ MATRICES = {
             "8552 is a damage-resistant structural epoxy system."
         ),
     },
+    
+    
+    "3501-6 Epoxy": {
+        "name": "3501-6 Epoxy",
+        "E": 3.2e9,
+        "G": 1.19e9,
+        "nu": 0.35,
+        "source": (
+            "Constituent material properties of AS4 fiber and "
+            "3501-6 epoxy resin, Materials, 2018"
+        ),
+        "source_type": "literature",
+        "notes": (
+            "Epoxy resin constituent properties. E = 3.2 GPa, "
+            "G = 1.19 GPa, and nu = 0.35. "
+            "Values are distinct from the 914C epoxy entry."
+        ),
+    },
+
 
     "Vinyl Ester": {
         "name": "Derakane Momentum 411-350",

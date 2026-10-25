@@ -1,0 +1,88 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v4b.csv",
+  "row_count": 20000,
+  "features": [
+    "Nx",
+    "Ny",
+    "Nxy",
+    "Mx",
+    "My",
+    "Mxy"
+  ],
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "split": {
+    "train": 14000,
+    "validation": 3000,
+    "test": 3000,
+    "zero_load_anchor_index": 0,
+    "zero_load_anchor_in": "training",
+    "train_region_counts": {
+      "near_boundary_failed": 1988,
+      "low_safe": 1980,
+      "near_boundary_safe": 1962,
+      "boundary": 1959,
+      "high_failed": 1910,
+      "very_low_load": 1400,
+      "low_load_100": 1400,
+      "low_load_1000": 1400,
+      "zero_load": 1
+    },
+    "validation_region_counts": {
+      "near_boundary_failed": 426,
+      "low_safe": 424,
+      "near_boundary_safe": 420,
+      "boundary": 420,
+      "high_failed": 410,
+      "very_low_load": 300,
+      "low_load_100": 300,
+      "low_load_1000": 300
+    },
+    "test_region_counts": {
+      "near_boundary_failed": 426,
+      "low_safe": 425,
+      "near_boundary_safe": 420,
+      "boundary": 420,
+      "high_failed": 409,
+      "very_low_load": 300,
+      "low_load_100": 300,
+      "low_load_1000": 300
+    }
+  },
+  "split_method": "70/15/15 split of nonzero rows stratified by sampling_region; the unique zero-load anchor is added to training",
+  "scaler": "StandardScaler fit on training features only",
+  "architecture": [
+    "Dense(64, relu)",
+    "Dense(64, relu)",
+    "Dense(32, relu)",
+    "Dense(1, linear)"
+  ],
+  "optimizer": "Adam",
+  "learning_rate": 0.001,
+  "loss": "MSE",
+  "batch_size": 32,
+  "max_epochs": 300,
+  "early_stopping": {
+    "monitor": "val_loss",
+    "patience": 30,
+    "restore_best_weights": true
+  },
+  "failure_threshold": 1.0,
+  "near_boundary_interval": [
+    0.9,
+    1.1
+  ],
+  "seed_base": 20261025,
+  "limitations": [
+    "The exact-zero anchor is in training, so its prediction is an in-sample physical-anchor check, not an independent test.",
+    "Dataset/API agreement is a computational consistency check, not experimental validation.",
+    "Performance must be interpreted separately for each sampling region and load magnitude."
+  ]
+}

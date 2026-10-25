@@ -30,7 +30,7 @@ LAMINA_STRENGTHS = {
 
     "AS4_3501_6": {
         "fiber": "AS4",
-        "matrix": "Standard Epoxy",
+        "matrix": "3501-6 Epoxy",
         "system_name": "AS4/3501-6",
 
         "Xt": 1950e6,

@@ -1,0 +1,18 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v4b.csv",
+  "model_dir": "results\\multitarget_dnn_v4b",
+  "reference": "running /analyze classical solver",
+  "case_count": 70,
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "failure_threshold": 1.0,
+  "prediction_clamp": "max(0, raw model prediction), for comparison with current API rule",
+  "interpretation": "Computational comparison only; this is not experimental validation. Selected dataset rows and constructed low-load checks are used; the report does not replace a larger external test suite."
+}

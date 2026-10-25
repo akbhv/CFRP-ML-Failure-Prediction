@@ -1,0 +1,23 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v4b.csv",
+  "v2_scaler": "data\\processed\\ml_multitarget_v2_hoffman_corrected\\feature_scaler.joblib",
+  "v2_model_dir": "results\\multitarget_dnn_v2_hoffman_corrected",
+  "v4b_scaler": "data\\processed\\ml_multitarget_v4b\\feature_scaler.joblib",
+  "v4b_model_dir": "results\\multitarget_dnn_v4b",
+  "reference": "running /analyze classical solver",
+  "case_count": 337,
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "failure_threshold": 1.0,
+  "postprocessing": "max(0, raw model prediction), matching active API inference rule",
+  "active_api_modified": false,
+  "sampling_design": "Reproducible region-stratified sample of up to 280 rows from the V4B dataset, plus constructed low-load probes and scaled versions of six sampled load directions.",
+  "interpretation": "Computational comparison only, not experimental validation. Both model versions were evaluated on identical cases against the running classical solver. Dataset rows are drawn from the same generated dataset family, so this is stronger diagnostic coverage, not a fully independent external validation. Scaled cases are probes, not independent random draws. V2 remains the active API model."
+}

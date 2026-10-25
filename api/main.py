@@ -27,16 +27,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 # ============================================================
@@ -254,10 +258,34 @@ def ml_predict(request: MLPredictionRequest):
 
 @app.get("/materials")
 def get_available_materials():
+    carbon_fibers = ["T300", "AS4", "IM7"]
+
+    compatible_systems = [
+        {
+            "fiber": data["fiber"],
+            "matrix": data["matrix"],
+            "system_id": system_id,
+            "system_name": data["system_name"],
+        }
+        for system_id, data in LAMINA_STRENGTHS.items()
+        if data["fiber"] in carbon_fibers
+    ]
+
+    available_fibers = [
+        fiber for fiber in carbon_fibers
+        if fiber in FIBERS
+    ]
+
+    available_matrices = list(dict.fromkeys(
+        system["matrix"] for system in compatible_systems
+    ))
+
     return {
-        "fibers": list(FIBERS.keys()),
-        "matrices": list(MATRICES.keys()),
+        "fibers": available_fibers,
+        "matrices": available_matrices,
+        "compatible_systems": compatible_systems,
     }
+
 
 
 @app.post("/material-properties")

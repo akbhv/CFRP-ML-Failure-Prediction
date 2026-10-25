@@ -1,0 +1,47 @@
+{
+  "dataset": "data\\processed\\failure_dataset_v4b.csv",
+  "test_indices": "data\\processed\\ml_multitarget_v4b\\test_indices.npy",
+  "model_dir": "results\\multitarget_dnn_v4b",
+  "reference": "running classical /analyze endpoint",
+  "case_count": 499,
+  "test_seed_rows": 446,
+  "scaled_seed_count": 12,
+  "scale_factors": [
+    0.5,
+    0.75,
+    1.0,
+    1.25,
+    1.5
+  ],
+  "targets": [
+    "max_stress_fi",
+    "max_strain_fi",
+    "tsai_hill_fi",
+    "tsai_wu_fi",
+    "hoffman_fi",
+    "hashin_fi",
+    "puck_fi"
+  ],
+  "threshold": 1.0,
+  "material": {
+    "fiber": "T300",
+    "matrix": "Standard Epoxy",
+    "Vf": 0.6
+  },
+  "layup": [
+    0,
+    45,
+    -45,
+    90,
+    90,
+    -45,
+    45,
+    0
+  ],
+  "limitations": [
+    "Computational validation only; no experimental validation.",
+    "Held-out test rows were not used to fit the saved V4B model, but the same dataset family was used for training.",
+    "Scaled test directions are dependent stress probes, not independent samples.",
+    "The script does not modify api/main.py, model artifacts, or previous validation reports."
+  ]
+}
