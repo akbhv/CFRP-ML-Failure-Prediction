@@ -218,10 +218,10 @@ def ml_predict(request: MLPredictionRequest):
 
     for target, display_name in ML_TARGETS.items():
         predicted_fi = float(
-            ml_models[target]
-            .predict(scaled_features, verbose=0)
-            .reshape(-1)[0]
+            ml_models[target](scaled_features, training=False)
+            .numpy().reshape(-1)[0]
         )
+
 
         # Failure indices are physically non-negative.
         predicted_fi = max(0.0, predicted_fi)
