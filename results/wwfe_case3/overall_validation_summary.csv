@@ -1,0 +1,2 @@
+number_of_points,mean_ratio,median_ratio,mean_absolute_percentage_error,median_absolute_percentage_error,points_ratio_below_1,points_ratio_equal_1,points_ratio_above_1,points_with_hashin_FI_ge_1,points_with_hashin_FI_lt_1
+43,2.070539525768018,2.1471245021690106,124.84146589505781,114.71245021690106,12,0,31,31,12

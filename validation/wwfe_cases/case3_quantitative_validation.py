@@ -173,8 +173,25 @@ def main():
         experimental_radius = np.hypot(sx, sy)
         predicted_radius = first_ply_failure_scale(sx, sy)
 
-        ratio = experimental_radius / predicted_radius
+        ratio = (
+            experimental_radius / predicted_radius
+            if predicted_radius > 0
+            else np.nan
+        )
+
+        
+        experimental_radius = np.hypot(sx, sy)
+        predicted_radius = first_ply_failure_scale(sx, sy)
+
+        ratio = (
+            experimental_radius / predicted_radius
+            if np.isfinite(predicted_radius) and predicted_radius > 0
+            else np.nan
+        )
+
         percent_difference = (ratio - 1.0) * 100.0
+        absolute_percent_difference = abs(percent_difference)
+
 
         comparison_rows.append({
             "id": point_id + 1,
@@ -185,6 +202,7 @@ def main():
             "predicted_first_ply_resultant_MPa": predicted_radius,
             "experimental_to_predicted_ratio": ratio,
             "percent_difference": percent_difference,
+            "absolute_percent_difference": absolute_percent_difference,
             "point_hashin_FI": point_fi,
             "governing_failure_mode": mode,
             "governing_ply": ply,
@@ -205,6 +223,44 @@ def main():
         RESULTS_DIR / "quantitative_comparison.csv",
         index=False,
     )
+    
+    
+        # Overall comparison summary.
+    valid = comparison.dropna(
+        subset=[
+            "experimental_to_predicted_ratio",
+            "absolute_percent_difference",
+        ]
+    )
+
+    ratios = valid["experimental_to_predicted_ratio"]
+    abs_errors = valid["absolute_percent_difference"]
+
+    summary = pd.DataFrame([{
+        "number_of_points": len(valid),
+        "mean_ratio": ratios.mean(),
+        "median_ratio": ratios.median(),
+        "mean_absolute_percentage_error": abs_errors.mean(),
+        "median_absolute_percentage_error": abs_errors.median(),
+        "points_ratio_below_1": int((ratios < 1.0).sum()),
+        "points_ratio_equal_1": int(np.isclose(ratios, 1.0).sum()),
+        "points_ratio_above_1": int((ratios > 1.0).sum()),
+        "points_with_hashin_FI_ge_1": int(
+            (valid["point_hashin_FI"] >= 1.0).sum()
+        ),
+        "points_with_hashin_FI_lt_1": int(
+            (valid["point_hashin_FI"] < 1.0).sum()
+        ),
+    }])
+
+    summary.to_csv(
+        RESULTS_DIR / "overall_validation_summary.csv",
+        index=False,
+    )
+
+    print("\nOVERALL WWFE COMPARISON SUMMARY")
+    print(summary.to_string(index=False))
+    
 
     by_set = comparison.groupby("experimental_set").agg(
         points=("id", "count"),
