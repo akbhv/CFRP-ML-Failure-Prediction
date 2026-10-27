@@ -1,0 +1,7 @@
+Loading Case,Nx,Ny,Nxy,Mx,My,Mxy
+Longitudinal tension,150000,0,0,0,0,0
+Transverse tension,0,100000,0,0,0,0
+In-plane shear,0,0,100000,0,0,0
+Biaxial tension,120000,80000,0,0,0,0
+Tension-compression,150000,-100000,0,0,0,0
+Combined loading,120000,60000,50000,30,10,15
