@@ -1,0 +1,7 @@
+Loading Case,Highest predicted FI,Highest-FI criterion,Threshold status
+Longitudinal tension,1.1009046,Tsai-Wu,FI >= 1
+Transverse tension,0.75487077,Hoffman,All listed FIs < 1
+In-plane shear,1.0179185,Tsai-Wu,FI >= 1
+Biaxial tension,0.82553077,Maximum Stress,All listed FIs < 1
+Tension-compression,1.4130099,Tsai-Wu,FI >= 1
+Combined loading,1.8265915,Tsai-Hill,FI >= 1

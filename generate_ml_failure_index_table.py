@@ -43,13 +43,13 @@ FEATURES = ["Nx", "Ny", "Nxy", "Mx", "My", "Mxy"]
 
 # Must match the V5 training target/model folder names.
 TARGETS = [
-    ("Maximum Stress", "maximum_stress"),
-    ("Maximum Strain", "maximum_strain"),
-    ("Tsai-Hill", "tsai_hill"),
-    ("Tsai-Wu", "tsai_wu"),
-    ("Hoffman", "hoffman"),
-    ("Hashin", "hashin"),
-    ("Puck", "puck"),
+    ("Maximum Stress", "max_stress_fi"),
+    ("Maximum Strain", "max_strain_fi"),
+    ("Tsai-Hill", "tsai_hill_fi"),
+    ("Tsai-Wu", "tsai_wu_fi"),
+    ("Hoffman", "hoffman_fi"),
+    ("Hashin", "hashin_fi"),
+    ("Puck", "puck_fi"),
 ]
 
 
